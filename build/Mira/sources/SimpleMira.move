@@ -7,10 +7,14 @@ module 0x1::SimpleMira {
     const ADMIN: address = @mira;
 
     struct Pools has key {
-        items: Table<address, Table<u64, MiraPool>>
+        items: Table<u64, MiraPool>
     }
 
-    struct Accounts has key {
+    struct AllPools has key {
+        items: Table<address, Pools>
+    }
+
+    struct AllAccounts has key {
         items: Table<address, MiraAccount>
     }
 
@@ -43,6 +47,33 @@ module 0x1::SimpleMira {
         invested_pools: Table<u64, MiraPool>,
     }
 
+    public fun init(account:&signer) {
+        let pools = Pools{
+            items: table::new<u64, MiraPool>()
+        };
+        move_to(account, pools);
+        connect_account(account);
+//        move_to(*ADMIN, copy Accounts);
+//        move_to(*ADMIN, copy Pools);
+    }
+
+    public fun connect_account(account: &signer) {
+        let account_addr = address_of(account);
+        assert!(exists<MiraAccount>(account_addr), 0);
+        let new_mira_account =
+            MiraAccount {
+                owner: account_addr,
+                account_name: b"random_name_generator",
+                total_funds_invested: 0,
+                funds_under_management: 0,
+                funds_on_gas: 0,
+                funds_on_management: 0,
+                created_pools: table::new<u64, MiraPool>(),
+                invested_pools: table::new<u64, MiraPool>(),
+            };
+        move_to(account, new_mira_account)
+    }
+
     public fun choose_pool_settings(
         management_fee: u8,
         rebalancing_period: u8,
@@ -66,7 +97,7 @@ module 0x1::SimpleMira {
         pool_name: vector<u8>,
         index_allocation: Table<vector<u8>, u64>,
         total_amount: u8,
-        settings: MiraPoolSettings): MiraPool {
+        settings: MiraPoolSettings) acquires Pools {
 
         let pool_address = address_of(&init_lp(manager));
 
@@ -82,22 +113,19 @@ module 0x1::SimpleMira {
             settings
         };
 
-        return newpool
+        let pools = borrow_global_mut<Pools>(address_of(manager));
+        let length = table::length(&mut pools.items);
+        table::add(&mut pools.items, length, newpool);
     }
-
-
 }
 
 #[test_only]
 module std::SimpleMiraTests {
     use std::unit_test;
     use std::vector;
-    use std::signer;
-    use std::SimpleMira::{choose_pool_settings, create_pool, MiraPool};
-    use std::signer::address_of;
+    use std::SimpleMira::{choose_pool_settings, create_pool};
     use std::debug::print;
     use aptos_framework::table;
-    use aptos_framework::table::Table;
 
     #[test]
     public entry fun create_actual_pool() {
@@ -107,6 +135,10 @@ module std::SimpleMiraTests {
             table::add<vector<u8>, u64>(&mut newallocations, b"APTOS", 50);
             table::add<vector<u8>, u64>(&mut newallocations, b"BTC", 50);
 
+        let newallocations2 = table::new<vector<u8>, u64>();
+            table::add<vector<u8>, u64>(&mut newallocations, b"APTOS", 25);
+            table::add<vector<u8>, u64>(&mut newallocations, b"BTC", 75);
+
         let settings = choose_pool_settings(
             1,
             10,
@@ -114,14 +146,22 @@ module std::SimpleMiraTests {
             0,
             0);
 
-        let pool = create_pool(
+        create_pool(
             &mira,
             b"firstpool",
             newallocations,
             100,
             settings);
 
-        move_to(&mira, pool);
+        create_pool(
+            &bob,
+            b"secondpool",
+            newallocations2,
+            100,
+            settings);
+
+//        print<signer>(&mira);
+//        print<vector<u8>>(& b"testing");
     }
 
     #[test_only]
