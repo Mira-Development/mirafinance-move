@@ -4,22 +4,18 @@
 module aptos_framework::chain_id {
     use aptos_framework::system_addresses;
     use aptos_framework::timestamp;
-    use std::errors;
-    use std::signer;
+
+    friend aptos_framework::genesis;
 
     struct ChainId has key {
         id: u8
     }
 
-    /// The `ChainId` resource was not in the required state
-    const ECHAIN_ID: u64 = 0;
-
+    /// Only called during genesis.
     /// Publish the chain ID `id` of this instance under the SystemAddresses address
-    public fun initialize(account: &signer, id: u8) {
-        timestamp::assert_genesis();
-        system_addresses::assert_aptos_framework(account);
-        assert!(!exists<ChainId>(signer::address_of(account)), errors::already_published(ECHAIN_ID));
-        move_to(account, ChainId { id })
+    public(friend) fun initialize(aptos_framework: &signer, id: u8) {
+        system_addresses::assert_aptos_framework(aptos_framework);
+        move_to(aptos_framework, ChainId { id })
     }
 
     /// Return the chain ID of this instance

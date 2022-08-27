@@ -1,10 +1,8 @@
 module 0x1::SimpleMira {
     use std::signer::address_of;
-    use aptos_framework::table::Table;
-    use aptos_framework::table;
+    use aptos_std::table::Table;
+    use aptos_std::table;
     use 0x1::LiquidityPool::init_lp;
-
-    const ADMIN: address = @mira;
 
     struct Pools has key {
         items: Table<u64, MiraPool>
@@ -114,22 +112,21 @@ module 0x1::SimpleMira {
         };
 
         let pools = borrow_global_mut<Pools>(address_of(manager));
-        let length = table::length(&mut pools.items);
-        table::add(&mut pools.items, length, newpool);
+        //let length = table::length(&mut pools.items);
+        table::add(&mut pools.items, 0, newpool);
     }
 }
 
 #[test_only]
-module std::SimpleMiraTests {
+module 0x1::SimpleMiraTests {
     use std::unit_test;
     use std::vector;
     use std::SimpleMira::{choose_pool_settings, create_pool};
-    use std::debug::print;
-    use aptos_framework::table;
+    use aptos_std::table;
 
-    #[test]
-    public entry fun create_actual_pool() {
-        let (mira, bob) = create_two_signers();
+    #[test(user1 = @0x111, user2 = @0x112 )]
+    public entry fun create_actual_pool(user1: signer, user2: signer) {
+        //let (mira, bob) = create_two_signers();
 
         let newallocations = table::new<vector<u8>, u64>();
             table::add<vector<u8>, u64>(&mut newallocations, b"APTOS", 50);
@@ -147,14 +144,14 @@ module std::SimpleMiraTests {
             0);
 
         create_pool(
-            &mira,
+            &user1,
             b"firstpool",
             newallocations,
             100,
             settings);
 
         create_pool(
-            &bob,
+            &user2,
             b"secondpool",
             newallocations2,
             100,

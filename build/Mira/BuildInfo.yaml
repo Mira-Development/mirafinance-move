@@ -2,24 +2,26 @@
 compiled_package_info:
   package_name: Mira
   address_alias_instantiation:
+    Extensions: "0000000000000000000000000000000000000000000000000000000000000001"
     Std: "0000000000000000000000000000000000000000000000000000000000000001"
     aptos_framework: "0000000000000000000000000000000000000000000000000000000000000001"
+    aptos_std: "0000000000000000000000000000000000000000000000000000000000000001"
     core_resources: 000000000000000000000000000000000000000000000000000000000a550c18
     mira: 59b0135f93fc9c89613523d47a92e652a57a42193f463ae9d4bd17188ed7cc93
     std: "0000000000000000000000000000000000000000000000000000000000000001"
     vm_reserved: "0000000000000000000000000000000000000000000000000000000000000000"
-  source_digest: 36063CF02FA6D22277940E0F651E4DD767B379C12AFE8DF7870A3FAFC153AAC0
+  source_digest: 4EC6E3BB9B8844C07F98D5C17147CDF77E474B1987C1E0C2D8C5135F44480B7E
   build_flags:
-    dev_mode: false
-    test_mode: false
-    generate_docs: true
-    generate_abis: true
+    dev_mode: true
+    test_mode: true
+    generate_docs: false
+    generate_abis: false
     install_dir: ~
     force_recompilation: false
     additional_named_addresses: {}
     architecture: ~
-    only_deps: false
+    fetch_deps_only: false
 dependencies:
   - AptosFramework
-  - MoveNursery
+  - AptosStdlib
   - MoveStdlib

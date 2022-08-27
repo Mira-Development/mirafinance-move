@@ -36,13 +36,14 @@
 /// }
 /// ```
 module aptos_framework::resource_account {
-    use std::errors;
+    use std::error;
     use std::signer;
     use std::vector;
     use aptos_framework::account;
-    use aptos_framework::simple_map::{Self, SimpleMap};
+    use aptos_std::simple_map::{Self, SimpleMap};
 
-    const ECONTAINER_NOT_PUBLISHED: u64 = 0;
+    /// Container resource not found in account
+    const ECONTAINER_NOT_PUBLISHED: u64 = 1;
 
     struct Container has key {
         store: SimpleMap<address, account::SignerCapability>,
@@ -82,7 +83,7 @@ module aptos_framework::resource_account {
         resource: &signer,
         source_addr: address,
     ): account::SignerCapability acquires Container {
-        assert!(exists<Container>(source_addr), errors::not_published(ECONTAINER_NOT_PUBLISHED));
+        assert!(exists<Container>(source_addr), error::not_found(ECONTAINER_NOT_PUBLISHED));
 
         let resource_addr = signer::address_of(resource);
         let (resource_signer_cap, empty_container) = {
@@ -93,7 +94,7 @@ module aptos_framework::resource_account {
 
         if (empty_container) {
             let container = move_from(source_addr);
-            let Container { store: store } = container;
+            let Container { store } = container;
             simple_map::destroy_empty(store);
         };
 
@@ -114,7 +115,7 @@ module aptos_framework::resource_account {
         let seed = x"01";
         let bytes = bcs::to_bytes(&user_addr);
         vector::append(&mut bytes, copy seed);
-        let resource_addr = account::create_address_for_test(hash::sha3_256(bytes));
+        let resource_addr = aptos_framework::byte_conversions::to_address(hash::sha3_256(bytes));
 
         create_resource_account(&user, seed, vector::empty());
         let container = borrow_global<Container>(user_addr);

@@ -1,25 +1,27 @@
 module aptos_framework::transaction_fee {
     use aptos_framework::coin::{Self, BurnCapability};
-    use aptos_framework::test_coin::TestCoin;
+    use aptos_framework::aptos_coin::AptosCoin;
     use aptos_framework::system_addresses;
 
-    friend aptos_framework::account;
+    friend aptos_framework::genesis;
+    friend aptos_framework::transaction_validation;
 
-    struct TestCoinCapabilities has key {
-        burn_cap: BurnCapability<TestCoin>,
+    struct AptosCoinCapabilities has key {
+        burn_cap: BurnCapability<AptosCoin>,
     }
 
     /// Burn transaction fees in epilogue.
-    public(friend) fun burn_fee(account: address, fee: u64) acquires TestCoinCapabilities {
-        coin::burn_from<TestCoin>(
+    public(friend) fun burn_fee(account: address, fee: u64) acquires AptosCoinCapabilities {
+        coin::burn_from<AptosCoin>(
             account,
             fee,
-            &borrow_global<TestCoinCapabilities>(@aptos_framework).burn_cap,
+            &borrow_global<AptosCoinCapabilities>(@aptos_framework).burn_cap,
         );
     }
 
-    public fun store_test_coin_burn_cap(account: &signer, burn_cap: BurnCapability<TestCoin>) {
-        system_addresses::assert_aptos_framework(account);
-        move_to(account, TestCoinCapabilities { burn_cap })
+    /// Only called during genesis.
+    public(friend) fun store_aptos_coin_burn_cap(aptos_framework: &signer, burn_cap: BurnCapability<AptosCoin>) {
+        system_addresses::assert_aptos_framework(aptos_framework);
+        move_to(aptos_framework, AptosCoinCapabilities { burn_cap })
     }
 }
