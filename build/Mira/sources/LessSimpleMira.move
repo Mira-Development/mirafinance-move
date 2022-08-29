@@ -14,10 +14,6 @@ module 0x1::LessSimpleMira {
     // to access a pool, let user_pools = borrow_global_mut<Pools>(address_of(useraccount)).pool_accounts ->
     // let specific_pool_resource_account = table::borrow_mut<String, address>(user_pool_resources, poolname)
     // view MiraPool: borrow_global_mut<MiraPool>(address_of(specific_pool_resource_account))
-    struct Pools has key {
-        pool_accounts: Table<String, SignerCapability>,
-        length: u64
-    }
 
     struct MiraPool has key, store {
         pool_name: String,
@@ -46,17 +42,8 @@ module 0x1::LessSimpleMira {
         funds_under_management: u8,
         funds_on_gas: u8,
         funds_on_management: u8,
-        created_pools: Table<u64, MiraPool>,
-        invested_pools: Table<u64, MiraPool>,
-    }
-
-    // initalize account with an empty Pools struct; no pools have been created
-    public fun init(account: &signer){
-        let pools = Pools{
-            pool_accounts: table::new<String, SignerCapability>(),
-            length: 0
-        };
-        move_to(account, pools);
+        created_pools: Table<String, SignerCapability>,
+        invested_pools: Table<String, SignerCapability>,
     }
 
     // check if account has already connected to Mira Dapp;
@@ -72,8 +59,8 @@ module 0x1::LessSimpleMira {
                     funds_under_management: 0,
                     funds_on_gas: 0,
                     funds_on_management: 0,
-                    created_pools: table::new<u64, MiraPool>(),
-                    invested_pools: table::new<u64, MiraPool>(),
+                    created_pools: table::new<String, SignerCapability>(),
+                    invested_pools: table::new<String, SignerCapability>(),
                 };
             move_to(account, new_mira_account)
         }
@@ -81,9 +68,13 @@ module 0x1::LessSimpleMira {
 
     // create resource account for the MiraPool, move MiraPool and send funds to the resource account,
     // and index the resouce account in Pools so that user can access pool.
-    public fun create_pool(manager: &signer, amount: u64, s: vector<u8>, pool_name: String,
-                           index_allocation: IterableTable<String, u64>, settings: MiraPoolSettings) acquires Pools {
-        let (resource_signer, signer_capability) = create_resource_account(manager, s);
+    public fun create_pool(manager: &signer, amount: u64, pool_name: String,
+                           index_allocation: IterableTable<String, u64>, settings: MiraPoolSettings) acquires MiraAccount {
+        let account = borrow_global_mut<MiraAccount>(address_of(manager));
+        assert!(!table::contains(&mut account.created_pools, pool_name), 0);
+
+        let (resource_signer, signer_capability) =
+            create_resource_account(manager, *string::bytes(&pool_name));
         coin::register<AptosCoin>(&resource_signer);
 
         let investors = table::new<address, u64>();
@@ -103,10 +94,7 @@ module 0x1::LessSimpleMira {
         );
 
         coin::transfer<AptosCoin>(manager, address_of(&resource_signer), amount);
-
-        let pools = borrow_global_mut<Pools>(address_of(manager));
-        table::add(&mut pools.pool_accounts, pool_name, signer_capability);
-        pools.length = pools.length + 1;
+        table::add(&mut account.created_pools, pool_name, signer_capability);
     }
 
     public fun choose_pool_settings( management_fee: u8, rebalancing_period: u8, minimum_contribution: u8,
@@ -117,22 +105,27 @@ module 0x1::LessSimpleMira {
             }
     }
 
-    public fun invest(investor: &signer, poolname: String, poolowner: address, amount: u64)acquires Pools, MiraPool {
-        let user_pool_resources = borrow_global_mut<Pools>(poolowner);
+    public fun invest(investor: &signer, poolname: String, poolowner: address, amount: u64)acquires MiraPool, MiraAccount {
+        let owner = borrow_global_mut<MiraAccount>(poolowner);
         let specific_pool_resource_account = table::borrow_mut<String, SignerCapability>(
-            &mut user_pool_resources.pool_accounts, poolname);
+            &mut owner.created_pools, poolname);
         let newsigner = create_signer_with_capability(specific_pool_resource_account);
         let mira_pool = borrow_global_mut<MiraPool>(address_of(&newsigner));
 
-        table::upsert(&mut mira_pool.investors, address_of(investor), amount);
+        let curramount = 0;
+        if (table::contains(&mut mira_pool.investors,address_of(investor))){
+            curramount = *table::borrow(&mira_pool.investors, address_of(investor));
+        };
+        table::upsert(&mut mira_pool.investors, address_of(investor), curramount + amount);
+
         mira_pool.amount = mira_pool.amount + amount;
         coin::transfer<AptosCoin>(investor, address_of(&newsigner), amount);
     }
 
-    public fun withdraw(investor: &signer, poolname: String, poolowner: address, amount: u64)acquires Pools, MiraPool {
-        let user_pool_resources = borrow_global_mut<Pools>(poolowner);
+    public fun withdraw(investor: &signer, poolname: String, poolowner: address, amount: u64)acquires MiraPool, MiraAccount {
+        let owner = borrow_global_mut<MiraAccount>(poolowner);
         let specific_pool_resource_account = table::borrow_mut<String, SignerCapability>(
-            &mut user_pool_resources.pool_accounts, poolname);
+            &mut owner.created_pools, poolname);
         let newsigner = create_signer_with_capability(specific_pool_resource_account);
         let mira_pool = borrow_global_mut<MiraPool>(address_of(&newsigner));
 
@@ -142,10 +135,10 @@ module 0x1::LessSimpleMira {
         table::upsert(&mut mira_pool.investors, address_of(investor), *value - amount);
     }
 
-    public fun change_pool_settings(manager: &signer, poolname: String, newsettings: MiraPoolSettings) acquires Pools, MiraPool {
-        let user_pool_resources = borrow_global_mut<Pools>(address_of(manager));
+    public fun change_pool_settings(manager: &signer, poolname: String, newsettings: MiraPoolSettings) acquires MiraAccount, MiraPool {
+        let owner = borrow_global_mut<MiraAccount>(address_of(manager));
         let specific_pool_resource_account = table::borrow_mut<String, SignerCapability>(
-            &mut user_pool_resources.pool_accounts, poolname);
+            &mut owner.created_pools, poolname);
         let newsigner = create_signer_with_capability(specific_pool_resource_account);
         let mira_pool = borrow_global_mut<MiraPool>(address_of(&newsigner));
         mira_pool.settings = newsettings;
@@ -185,8 +178,6 @@ module 0x1::LessSimpleMira {
 ////            i = i + 2;
 ////        };
 //    }
-
-
 }
 
 #[test_only]
@@ -197,7 +188,7 @@ module std::LessSimpleMiraTests {
     use aptos_framework::aptos_coin::{Self, AptosCoin};
     use std::signer::address_of;
     use aptos_framework::coin::{deposit, BurnCapability, MintCapability};
-    use 0x1::LessSimpleMira::{create_pool, init, connect_account, change_account_name, choose_pool_settings, MiraPoolSettings, change_pool_settings, invest, withdraw};
+    use 0x1::LessSimpleMira::{create_pool, connect_account, change_account_name, choose_pool_settings, MiraPoolSettings, change_pool_settings, invest, withdraw};
     use aptos_std::iterable_table;
     use aptos_std::iterable_table::IterableTable;
     use std::string;
@@ -229,22 +220,19 @@ module std::LessSimpleMiraTests {
         let (settings, settings2) = generate_pool_settings();
         let (allocation, allocation2, allocation3) = generate_allocations();
 
-        init(&mira);
         connect_account(&mira);
         change_account_name(&mira, string::utf8(b"mira"));
-        create_pool(&mira, 100, b"seed1", string::utf8(b"mira_first_pool"), allocation, settings);
-        create_pool(&mira, 200, b"seed2", string::utf8(b"mira_second_pool"), allocation2, settings2);
+        create_pool(&mira, 100, string::utf8(b"mira_first_pool"), allocation, settings);
+        create_pool(&mira, 200, string::utf8(b"mira_second_pool"), allocation2, settings2);
         change_pool_settings(&mira, string::utf8(b"mira_second_pool"), settings);
 
-        init(&alice);
         connect_account(&alice);
         change_account_name(&alice, string::utf8(b"alice"));
-        create_pool(&alice, 200, b"seed3", string::utf8(b"alice_first_pool"), allocation3, settings2);
+        create_pool(&alice, 200, string::utf8(b"alice_first_pool"), allocation3, settings2);
         invest(&alice, string::utf8(b"alice_first_pool"), address_of(&alice), 100);
         withdraw(&alice, string::utf8(b"alice_first_pool"), address_of(&alice), 100);
         invest(&alice, string::utf8(b"mira_first_pool"), address_of(&mira), 100);
 
-        init(&bob);
         connect_account(&bob);
         change_account_name(&bob, string::utf8(b"bob"));
         invest(&bob, string::utf8(b"alice_first_pool"), address_of(&alice), 100);
