@@ -242,6 +242,25 @@ module std::LessSimpleMiraTests {
         terminate_test(burn_cap, mint_cap);
     }
 
+    #[test(core_framework = @aptos_framework)]
+    public entry fun should_fail(core_framework: signer) {
+        let (mira, _) = create_two_signers();
+        let (burn_cap, mint_cap) =
+            setup_test_account(&mira, &core_framework, 5000);
+
+        let (settings, settings2) = generate_pool_settings();
+        let (allocation, allocation2, allocation3) = generate_allocations();
+
+        connect_account(&mira);
+        change_account_name(&mira, string::utf8(b"mira"));
+
+        create_pool(&mira, 100, string::utf8(b"mira_first_pool"), allocation, settings);
+        create_pool(&mira, 200, string::utf8(b"mira_first_pool"), allocation2, settings2);
+        create_pool(&mira, 200, string::utf8(b"mira_third_pool"), allocation3, settings2);
+
+        terminate_test(burn_cap, mint_cap);
+    }
+
     #[test_only]
     fun create_two_signers(): (signer, signer) {
         let signers = &mut unit_test::create_signers_for_testing(2);
