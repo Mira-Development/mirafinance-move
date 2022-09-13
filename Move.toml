@@ -7,4 +7,4 @@ rev = 'main'
 subdir = 'aptos-move/framework/aptos-framework'
 
 [addresses]
-mira = "0xa80b0fdb811dfd26354fb226dfccb28f28d84f46fcf85e8ce8ef8d351655be92"
+mira = "0x07ce6b5413f378ffc8f30f1fbe8c3cb2e8633e1e615efcdca335a3ca011204a0"
