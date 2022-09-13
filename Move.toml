@@ -1,12 +1,10 @@
 [package]
 name = 'Mira'
 version = '0.0.0'
-
-[dependencies]
-AptosFramework = { local = "../aptos-core/aptos-move/framework/aptos-framework" }
-#MoveStdlib = { local = "../aptos-core/aptos-move/framework/move-stdlib" }
-#MoveNursery = { local = "../aptos-core/aptos-move/framework/move-stdlib/nursery" }
+[dependencies.AptosFramework]
+git = 'https://github.com/aptos-labs/aptos-core.git'
+rev = 'main'
+subdir = 'aptos-move/framework/aptos-framework'
 
 [addresses]
-Std = "0x1"
-mira = "0x59B0135F93FC9C89613523D47A92E652A57A42193F463AE9D4BD17188ED7CC93"
+mira = "0x07ce6b5413f378ffc8f30f1fbe8c3cb2e8633e1e615efcdca335a3ca011204a0"
