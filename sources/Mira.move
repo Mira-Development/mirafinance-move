@@ -8,6 +8,11 @@ module mira::mira{
     use aptos_framework::aptos_coin::AptosCoin;
     use aptos_framework::event::{Self, EventHandle};
     use aptos_framework::timestamp;
+    use liquidswap::router;
+    use liquidswap_lp::coins::BTC;
+    use liquidswap_lp::coins::USDT;
+    use liquidswap_lp::lp::LP;
+
     
     const MODULE_ADMIN: address = @mira;
 
@@ -173,7 +178,40 @@ module mira::mira{
         };
         table::upsert(&mut mira_pool.investors, investor_addr, curramount + amount);
         mira_pool.amount = mira_pool.amount + amount;        
-        coin::transfer<AptosCoin>(investor, signer::address_of(&pool_signer), amount);
+
+        //BTC
+        let btc_percent =table::borrow(&mira_pool.index_allocation, string::utf8(b"BTC"));
+
+        let btc_amount = amount * (*btc_percent as u64) / 100;
+
+        let aptos_coins_to_swap_btc = coin::withdraw<AptosCoin>(investor, btc_amount);
+        let btc_amount_to_get = router::get_amount_out<AptosCoin, BTC, LP<AptosCoin, BTC>>(
+            @liquidswap,
+            btc_amount
+        );
+        let btc = router::swap_exact_coin_for_coin<AptosCoin, BTC, LP<AptosCoin, BTC>>(
+            @liquidswap,
+            aptos_coins_to_swap_btc,
+            btc_amount_to_get
+        );
+        coin::deposit(signer::address_of(&pool_signer), btc);
+
+        //USDT
+        let usdt_percent =table::borrow(&mira_pool.index_allocation, string::utf8(b"USDT"));
+        let usdt_amount = amount * (*usdt_percent as u64) /100;
+
+        let aptos_coins_to_swap_usdt = coin::withdraw<AptosCoin>(investor, usdt_amount);
+        let usdt_amount_to_get = router::get_amount_out<AptosCoin, BTC, LP<AptosCoin, USDT>>(
+            @liquidswap,
+            usdt_amount
+        );
+        let usdt = router::swap_exact_coin_for_coin<AptosCoin, BTC, LP<AptosCoin, USDT>>(
+            @liquidswap,
+            aptos_coins_to_swap_usdt,
+            usdt_amount_to_get
+        );
+        coin::deposit(signer::address_of(&pool_signer), usdt);
+
     }
     
     public entry fun withdraw(investor: &signer, pool_name: vector<u8>, pool_owner: address, amount: u64) acquires MiraPool, MiraAccount {
