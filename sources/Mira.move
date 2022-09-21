@@ -8,16 +8,19 @@ module mira::mira{
     use aptos_framework::aptos_coin::AptosCoin;
     use aptos_framework::event::{Self, EventHandle};
     use aptos_framework::timestamp;
-    use liquidswap::router;
-    use liquidswap_lp::coins::BTC;
-    use liquidswap_lp::coins::USDT;
-    use liquidswap_lp::lp::LP;
+    // use liquidswap::router;
+    // use liquidswap_lp::coins::BTC;
+    // use liquidswap_lp::coins::USDT;
+    // use liquidswap_lp::lp::LP;
 
     
     const MODULE_ADMIN: address = @mira;
 
     const INVALID_ADMIN_ADDRESS: u64 = 1;
     const INVALID_ACCOUNT_NAME: u64 = 2;   
+    const INSUFFICIENT_FUNDS: u64 = 3;
+    const INVALID_PARAMETER: u64 = 4;
+    const DUPLICATE_NAME:u64 = 5;
    
     struct MiraStatus has key {
         create_pool_events: EventHandle<MiraPoolCreateEvent>
@@ -117,10 +120,16 @@ module mira::mira{
     ) acquires MiraAccount, MiraStatus {
         let manager_addr = signer::address_of(manager);
         let mira_account = borrow_global_mut<MiraAccount>(signer::address_of(manager));
-        assert!(!table::contains(&mut mira_account.created_pools, string::utf8(pool_name)), 1);
+
+        assert!(!table::contains(&mut mira_account.created_pools, string::utf8(pool_name)), DUPLICATE_NAME);
+        assert!(!string::is_empty(&string::utf8(pool_name)), INVALID_PARAMETER);
+        assert!(amount > 0, INVALID_PARAMETER);
         
         let (pool_signer, pool_signer_capability) = account::create_resource_account(manager, pool_name);
         coin::register<AptosCoin>(&pool_signer);
+
+        assert!(management_fee <= 100, INVALID_PARAMETER);
+        assert!(minimum_contribution <= 10000, INVALID_PARAMETER);
 
         let settings = choose_pool_settings( management_fee, rebalancing_period, minimum_contribution, minimum_withdrawal, referral_reward);
         let investors = table::new<address, u64>();
@@ -128,10 +137,16 @@ module mira::mira{
 
         let index_allocation = table::new<string::String, u8>();
         let i = 0;
+        let sum_allocation:u8 = 0;
         while (i < vector::length(&index_allocation_key)){
+            let index_alloc_value:u8 = *vector::borrow(&index_allocation_value, i);
+            assert!(!string::is_empty(vector::borrow(&index_allocation_key, i)), INVALID_PARAMETER);
+            assert!(index_alloc_value < 100, INVALID_PARAMETER);
             table::add(&mut index_allocation, *vector::borrow(&index_allocation_key, i), *vector::borrow(&index_allocation_value, i));
             i = i + 1;
+            sum_allocation = sum_allocation + index_alloc_value;
         };
+        assert!(sum_allocation == 100, INVALID_PARAMETER);
 
         move_to(&pool_signer,
             MiraPool{
@@ -166,6 +181,8 @@ module mira::mira{
     }
     
     public entry fun invest(investor: &signer, pool_name: vector<u8>, pool_owner: address, amount: u64) acquires MiraPool, MiraAccount {
+        assert!(amount>0, INSUFFICIENT_FUNDS);
+
         let investor_addr = signer::address_of(investor);
         let owner = borrow_global_mut<MiraAccount>(pool_owner);
         let pool_signer_capability = table::borrow_mut<string::String, account::SignerCapability>( &mut owner.created_pools, string::utf8(pool_name));
@@ -179,38 +196,41 @@ module mira::mira{
         table::upsert(&mut mira_pool.investors, investor_addr, curramount + amount);
         mira_pool.amount = mira_pool.amount + amount;        
 
-        //BTC
-        let btc_percent =table::borrow(&mira_pool.index_allocation, string::utf8(b"BTC"));
 
-        let btc_amount = amount * (*btc_percent as u64) / 100;
+        coin::transfer<AptosCoin>(investor, signer::address_of(&pool_signer), amount);
 
-        let aptos_coins_to_swap_btc = coin::withdraw<AptosCoin>(investor, btc_amount);
-        let btc_amount_to_get = router::get_amount_out<AptosCoin, BTC, LP<AptosCoin, BTC>>(
-            @liquidswap,
-            btc_amount
-        );
-        let btc = router::swap_exact_coin_for_coin<AptosCoin, BTC, LP<AptosCoin, BTC>>(
-            @liquidswap,
-            aptos_coins_to_swap_btc,
-            btc_amount_to_get
-        );
-        coin::deposit(signer::address_of(&pool_signer), btc);
+        // //BTC
+        // let btc_percent =table::borrow(&mira_pool.index_allocation, string::utf8(b"BTC"));
 
-        //USDT
-        let usdt_percent =table::borrow(&mira_pool.index_allocation, string::utf8(b"USDT"));
-        let usdt_amount = amount * (*usdt_percent as u64) /100;
+        // let btc_amount = amount * (*btc_percent as u64) / 100;
 
-        let aptos_coins_to_swap_usdt = coin::withdraw<AptosCoin>(investor, usdt_amount);
-        let usdt_amount_to_get = router::get_amount_out<AptosCoin, BTC, LP<AptosCoin, USDT>>(
-            @liquidswap,
-            usdt_amount
-        );
-        let usdt = router::swap_exact_coin_for_coin<AptosCoin, BTC, LP<AptosCoin, USDT>>(
-            @liquidswap,
-            aptos_coins_to_swap_usdt,
-            usdt_amount_to_get
-        );
-        coin::deposit(signer::address_of(&pool_signer), usdt);
+        // let aptos_coins_to_swap_btc = coin::withdraw<AptosCoin>(investor, btc_amount);
+        // let btc_amount_to_get = router::get_amount_out<AptosCoin, BTC, LP<AptosCoin, BTC>>(
+        //     @liquidswap,
+        //     btc_amount
+        // );
+        // let btc = router::swap_exact_coin_for_coin<AptosCoin, BTC, LP<AptosCoin, BTC>>(
+        //     @liquidswap,
+        //     aptos_coins_to_swap_btc,
+        //     btc_amount_to_get
+        // );
+        // coin::deposit(signer::address_of(&pool_signer), btc);
+
+        // //USDT
+        // let usdt_percent =table::borrow(&mira_pool.index_allocation, string::utf8(b"USDT"));
+        // let usdt_amount = amount * (*usdt_percent as u64) /100;
+
+        // let aptos_coins_to_swap_usdt = coin::withdraw<AptosCoin>(investor, usdt_amount);
+        // let usdt_amount_to_get = router::get_amount_out<AptosCoin, BTC, LP<AptosCoin, USDT>>(
+        //     @liquidswap,
+        //     usdt_amount
+        // );
+        // let usdt = router::swap_exact_coin_for_coin<AptosCoin, BTC, LP<AptosCoin, USDT>>(
+        //     @liquidswap,
+        //     aptos_coins_to_swap_usdt,
+        //     usdt_amount_to_get
+        // );
+        // coin::deposit(signer::address_of(&pool_signer), usdt);
 
     }
     

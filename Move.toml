@@ -6,13 +6,6 @@ git = 'https://github.com/aptos-labs/aptos-core.git'
 rev = 'main'
 subdir = 'aptos-move/framework/aptos-framework'
 
-[dependencies.Liquidswap]
-git = 'https://github.com/pontem-network/liquidswap.git'
-rev = 'latest version'
-
-[dependencies.LiquidswapLP]
-git = 'https://github.com/pontem-network/liquidswap-lp.git'
-rev = 'latest version'
 
 [addresses]
 mira = "0x07d491b53057dfef2b535e1a41c97ae443648bee8b1bd0493624af4a789be205"
