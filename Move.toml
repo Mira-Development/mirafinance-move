@@ -8,5 +8,5 @@ subdir = 'aptos-move/framework/aptos-framework'
 
 
 [addresses]
-mira = "0x07d491b53057dfef2b535e1a41c97ae443648bee8b1bd0493624af4a789be205"
+mira = "0x604c6317fd8a6cba80a07f248b8f97077ae845a29d845796e79d0f77a84a41f6"
 
