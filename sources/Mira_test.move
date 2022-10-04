@@ -1,25 +1,31 @@
 #[test_only]
 module mira::mira_test{
-   use aptos_framework::string;
-   use aptos_framework::signer;
+   //use std::string;
+   use std::signer;
    use aptos_framework::account;
-   use aptos_framework::timestamp;
+   //use aptos_framework::timestamp;
    use aptos_framework::managed_coin;
    use aptos_framework::aptos_coin::{Self, AptosCoin};
    use aptos_framework::coin::{Self, MintCapability, BurnCapability};
    use mira::mira;
+    use aptos_framework::timestamp;
+    use std::string::String;
+    use std::string;
+    use std::vector;
+    use aptos_std::debug;
+    use std::signer::address_of;
 
-   struct AptosCoinTest has key{
+    struct AptosCoinTest has key{
       mint_cap: MintCapability<AptosCoin>,
       burn_cap: BurnCapability<AptosCoin>
    }
 
-   #[test(creator = @mira, aptos_framework = @aptos_framework)]
+//   #[test(creator = @mira, aptos_framework = @aptos_framework)]
    public entry fun test_init_mira(
        creator: &signer,
        aptos_framework: &signer
    ) {
-       let creator_addr = signer::address_of(creator);
+       let creator_addr = address_of(creator);
        account::create_account_for_test(creator_addr);
        mira::init_mira(creator);
 
@@ -39,7 +45,7 @@ module mira::mira_test{
        });
    }
 
-   #[test(creator = @mira, user=@0x123, aptos_framework = @aptos_framework)]
+//   #[test(creator = @mira, user=@0x123, aptos_framework = @aptos_framework)]
    public entry fun test_connect_account(
        creator: &signer,
        user: &signer,
@@ -56,11 +62,11 @@ module mira::mira_test{
         aptos_framework: &signer
     ) acquires AptosCoinTest {
         test_connect_account(creator, user, aptos_framework);
-        let user_addr = signer::address_of(user);
+        let user_addr = address_of(user);
         account::create_account_for_test(user_addr);
 
         //mint 10000 aptos  to user
-        let aptosCoinTest = borrow_global<AptosCoinTest>(signer::address_of(creator));
+        let aptosCoinTest = borrow_global<AptosCoinTest>(address_of(creator));
         let coins_minted = coin::mint<AptosCoin>(10000, &aptosCoinTest.mint_cap);
         if (!coin::is_account_registered<AptosCoin>(user_addr)){
 	      managed_coin::register<AptosCoin>(user);
@@ -68,6 +74,14 @@ module mira::mira_test{
         coin::deposit<AptosCoin>(user_addr, coins_minted);
 
         timestamp::set_time_has_started_for_testing(aptos_framework);
+
+        let coin_names = vector::empty<String>();
+        vector::push_back(&mut coin_names, string::utf8(b"BTC"));
+        vector::push_back(&mut coin_names, string::utf8(b"ETH"));
+
+        let coin_amounts = vector::empty<u8>();
+        vector::push_back(&mut coin_amounts, 50);
+        vector::push_back(&mut coin_amounts, 50);
 
         mira::create_pool(
             user,
@@ -78,10 +92,13 @@ module mira::mira_test{
             1000, //minimum_contribution 10%
             0, //minium_withdrawal_period
             1000, //referral_reward 10%
-            vector<string::String>[string::utf8(b"BTC"), string::utf8(b"ETH")],
-            vector<u8>[50,50],
+            coin_names,
+            coin_amounts,
             false
-        )
+        );
+
+        debug::print<address>(&address_of(creator));
+        debug::print<signer>(user);
     }
 
 }
