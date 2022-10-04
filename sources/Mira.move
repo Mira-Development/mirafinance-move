@@ -12,7 +12,9 @@ module mira::mira{
     use liquidswap::curves::Uncorrelated;
     use test_coins::coins::BTC;
     use std::string::String;
-
+    use aptos_std::debug;
+    use aptos_framework::account::SignerCapability;
+    use aptos_std::table::Table;
 
     const MODULE_ADMIN: address = @mira;
 
@@ -31,8 +33,8 @@ module mira::mira{
         created: u64, //in seconds
         pool_address: address,
         manager: address,
-        investors: table::Table<address, u64>,
-        index_allocation: table::Table<String, u8>,
+        investors: Table<address, u64>,
+        index_allocation: Table<String, u8>,
         amount: u64,
         private_allocation: bool,
         settings: MiraPoolSettings
@@ -53,8 +55,8 @@ module mira::mira{
         funds_under_management: u64,
         funds_on_gas: u64,
         funds_on_management: u64,
-        created_pools: table::Table<String, account::SignerCapability>,
-        invested_pools: table::Table<String, account::SignerCapability>
+        created_pools: Table<String, SignerCapability>,
+        invested_pools: Table<String, SignerCapability>
     }
 
     //emit during creating pool
@@ -74,7 +76,6 @@ module mira::mira{
         move_to(admin, MiraStatus{
             create_pool_events: account::new_event_handle<MiraPoolCreateEvent>(admin)
         });
-
     }
 
     public entry fun connect_account( user: &signer, account_name: vector<u8> ) {
@@ -87,10 +88,10 @@ module mira::mira{
                 funds_under_management: 0,
                 funds_on_gas: 0,
                 funds_on_management: 0,
-                created_pools: table::new<String, account::SignerCapability>(),
-                invested_pools: table::new<String, account::SignerCapability>()
+                created_pools: table::new<String, SignerCapability>(),
+                invested_pools: table::new<String, SignerCapability>()
             })
-        }
+        };
     }
 
     fun choose_pool_settings( management_fee: u64, rebalancing_period: u8, minimum_contribution: u64,
@@ -98,6 +99,19 @@ module mira::mira{
         MiraPoolSettings {
             management_fee, rebalancing_period, minimum_contribution, minimum_withdrawal, referral_reward
         }
+    }
+
+    public entry fun print_pool_info(user: &signer, pool_name: String) acquires MiraAccount, MiraPool {
+        let acct = borrow_global_mut<MiraAccount>(signer::address_of(user));
+        let signercap = table::borrow(&acct.created_pools, pool_name);
+        let pool_signer = account::create_signer_with_capability(signercap);
+        let mira_pool = borrow_global_mut<MiraPool>(signer::address_of(&pool_signer));
+        debug::print(mira_pool);
+    }
+
+    public entry fun print_account_info(user: &signer)acquires MiraAccount {
+        let acct = borrow_global_mut<MiraAccount>(signer::address_of(user));
+        debug::print(acct);
     }
 
     // this should happen on backend, shouldn't charge user gas to change account name
@@ -189,7 +203,7 @@ module mira::mira{
 
         let investor_addr = signer::address_of(investor);
         let owner = borrow_global_mut<MiraAccount>(pool_owner);
-        let pool_signer_capability = table::borrow_mut<String, account::SignerCapability>( &mut owner.created_pools, string::utf8(pool_name));
+        let pool_signer_capability = table::borrow_mut<String, SignerCapability>( &mut owner.created_pools, string::utf8(pool_name));
         let pool_signer = account::create_signer_with_capability(pool_signer_capability);
         let mira_pool = borrow_global_mut<MiraPool>(signer::address_of(&pool_signer));
 
@@ -260,14 +274,15 @@ module mira::mira{
 
     public entry fun withdraw(investor: &signer, pool_name: vector<u8>, pool_owner: address, amount: u64) acquires MiraPool, MiraAccount {
         let owner = borrow_global_mut<MiraAccount>(pool_owner);
-        let pool_signer_capability = table::borrow_mut<String, account::SignerCapability>( &mut owner.created_pools, string::utf8(pool_name));
+        let pool_signer_capability = table::borrow_mut<String, SignerCapability>( &mut owner.created_pools, string::utf8(pool_name));
         let pool_signer = account::create_signer_with_capability(pool_signer_capability);
         let mira_pool = borrow_global_mut<MiraPool>(signer::address_of(&pool_signer));
 
-        let value = table::borrow(&mut mira_pool.investors, signer::address_of(investor));
+        let withdrawal_limit = table::borrow(&mut mira_pool.investors, signer::address_of(investor));
+        assert!(*withdrawal_limit >= amount, INSUFFICIENT_FUNDS);
 
         mira_pool.amount = mira_pool.amount - amount;
         coin::transfer<AptosCoin>(&pool_signer, signer::address_of(investor), amount);
-        table::upsert(&mut mira_pool.investors, signer::address_of(investor), *value - amount);
+        table::upsert(&mut mira_pool.investors, signer::address_of(investor), *withdrawal_limit - amount);
     }
 }

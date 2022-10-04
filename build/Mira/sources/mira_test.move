@@ -1,7 +1,6 @@
 #[test_only]
 module mira::mira_test{
    //use std::string;
-   use std::signer;
    use aptos_framework::account;
    //use aptos_framework::timestamp;
    use aptos_framework::managed_coin;
@@ -25,7 +24,7 @@ module mira::mira_test{
        creator: &signer,
        aptos_framework: &signer
    ) {
-       let creator_addr = signer::address_of(creator);
+       let creator_addr = address_of(creator);
        account::create_account_for_test(creator_addr);
        mira::init_mira(creator);
 
@@ -53,6 +52,7 @@ module mira::mira_test{
    ) {
        test_init_mira(creator, aptos_framework);
        mira::connect_account(user, b"randomizestr");
+        debug::print<signer>(user);
    }
 
     #[test(creator = @mira, user=@0x123, aptos_framework = @aptos_framework)]
@@ -62,11 +62,11 @@ module mira::mira_test{
         aptos_framework: &signer
     ) acquires AptosCoinTest {
         test_connect_account(creator, user, aptos_framework);
-        let user_addr = signer::address_of(user);
+        let user_addr = address_of(user);
         account::create_account_for_test(user_addr);
 
         //mint 10000 aptos  to user
-        let aptosCoinTest = borrow_global<AptosCoinTest>(signer::address_of(creator));
+        let aptosCoinTest = borrow_global<AptosCoinTest>(address_of(creator));
         let coins_minted = coin::mint<AptosCoin>(10000, &aptosCoinTest.mint_cap);
         if (!coin::is_account_registered<AptosCoin>(user_addr)){
 	      managed_coin::register<AptosCoin>(user);
