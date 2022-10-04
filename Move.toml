@@ -1,12 +1,15 @@
 [package]
 name = 'Mira'
 version = '0.0.0'
-[dependencies.AptosFramework]
-git = 'https://github.com/aptos-labs/aptos-core.git'
-rev = 'main'
-subdir = 'aptos-move/framework/aptos-framework'
 
+[dependencies]
+#AptosFramework = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-framework", rev = "v0.3.7"}
+Liquidswap = {git = 'https://github.com/pontem-network/liquidswap.git', rev = 'v0.3.0'}
+#TestCoins = {git = 'https://github.com/pontem-network/test-coins.git', rev = 'v0.1.0'}
+
+[dependencies.TestCoins]
+git = 'https://github.com/pontem-network/test-coins.git'
+rev = 'v0.1.1'
 
 [addresses]
-mira = "0x604c6317fd8a6cba80a07f248b8f97077ae845a29d845796e79d0f77a84a41f6"
-
+mira = "bb171011e3d8fb5af1991c6a5d8107c28702db906d9f03e732777800872fec52"
