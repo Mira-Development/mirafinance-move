@@ -2,17 +2,17 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="92ef2b4e-736a-4c2e-bb0e-c467d0cbc269" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/sources/Mira_test2.move" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Move.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Move.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/BuildInfo.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/BuildInfo.yaml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/bytecode_modules/mira.mv" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/bytecode_modules/mira.mv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/Mira/bytecode_modules/mira_test.mv" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/bytecode_modules/mira_test.mv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/Mira/bytecode_modules/mira_test2.mv" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/bytecode_modules/mira_test2.mv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/source_maps/mira.mvsm" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/source_maps/mira.mvsm" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/Mira/source_maps/mira_test.mvsm" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/source_maps/mira_test.mvsm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/Mira/source_maps/mira_test2.mvsm" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/source_maps/mira_test2.mvsm" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/sources/mira.move" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/sources/mira.move" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/Mira/sources/mira_test.move" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/sources/mira_test.move" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/Mira/sources/mira_test2.move" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/sources/mira_test2.move" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/sources/Mira.move" beforeDir="false" afterPath="$PROJECT_DIR$/sources/Mira.move" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/sources/Mira_test.move" beforeDir="false" afterPath="$PROJECT_DIR$/sources/Mira_test.move" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sources/Mira_test2.move" beforeDir="false" afterPath="$PROJECT_DIR$/sources/Mira_test2.move" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -28,6 +28,9 @@
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$USER_HOME$/.move/https___github_com_aptos-labs_aptos-core_git_8f634bcd2e48c4972868d0053d3532f4f760ae19/aptos-move/framework/aptos-framework/sources/aptos_coin.move" root0="SKIP_INSPECTION" />
   </component>
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
@@ -45,7 +48,8 @@
   "keyToString": {
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
-    "last_opened_file_path": "/Users/nigel/Desktop/mirafinance-move/sources"
+    "last_opened_file_path": "/Users/nigel/Desktop/mirafinance-move/sources",
+    "settings.editor.selected.configurable": "preferences.lookFeel"
   }
 }]]></component>
   <component name="RecentsManager">

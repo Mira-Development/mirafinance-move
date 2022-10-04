@@ -9,3 +9,4 @@ TestCoins = {git = 'https://github.com/pontem-network/test-coins.git', rev = 'v0
 
 [addresses]
 mira = "bb171011e3d8fb5af1991c6a5d8107c28702db906d9f03e732777800872fec52"
+
