@@ -3,15 +3,18 @@
   <component name="ChangeListManager">
     <list default="true" id="92ef2b4e-736a-4c2e-bb0e-c467d0cbc269" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Move.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Move.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/BuildInfo.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/BuildInfo.yaml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/bytecode_modules/mira.mv" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/bytecode_modules/mira.mv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/Mira/bytecode_modules/mira_test.mv" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/bytecode_modules/mira_test.mv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/bytecode_modules/mira_test2.mv" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/bytecode_modules/mira_test2.mv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/source_maps/mira.mvsm" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/source_maps/mira.mvsm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/Mira/source_maps/mira_test.mvsm" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/source_maps/mira_test.mvsm" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/source_maps/mira_test2.mvsm" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/source_maps/mira_test2.mvsm" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/sources/mira.move" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/sources/mira.move" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/Mira/sources/mira_test.move" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/sources/mira_test.move" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/sources/mira_test2.move" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/sources/mira_test2.move" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/sources/Mira.move" beforeDir="false" afterPath="$PROJECT_DIR$/sources/Mira.move" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sources/Mira_test.move" beforeDir="false" afterPath="$PROJECT_DIR$/sources/Mira_test.move" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/sources/Mira_test2.move" beforeDir="false" afterPath="$PROJECT_DIR$/sources/Mira_test2.move" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -57,7 +60,7 @@
       <recent name="$PROJECT_DIR$/sources" />
     </key>
   </component>
-  <component name="RunManager" selected="Move.Test mira_test2">
+  <component name="RunManager" selected="Move.Test mira_test">
     <configuration name="Build" type="MoveRunConfiguration">
       <option name="command" value="move compile" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
@@ -96,8 +99,8 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Move.Test mira_test2" />
         <item itemvalue="Move.Test mira_test" />
+        <item itemvalue="Move.Test mira_test2" />
         <item itemvalue="Move.Test LessSimpleMiraTests" />
         <item itemvalue="Move.Test unit_test" />
         <item itemvalue="Move.Test SimpleMiraTests" />

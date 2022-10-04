@@ -83,18 +83,24 @@ module mira::mira_test{
         table_with_length::add(&mut token_allocations, 0, 50);
         table_with_length::add(&mut token_allocations, 1, 50);
 
+        let poolsettings = mira::create_pool_settings(
+            0,
+            0,
+            5,
+            0,
+            0,
+            0,
+            0
+        );
+
         mira::create_pool(
             user,
             b"pool_name",
-            1000, //amount
-            1000, //management_fee  10%
-            0, //rebalancing_period
-            1000, //minimum_contribution 10%
-            0, //minium_withdrawal_period
-            1000, //referral_reward 10%
             tokens,
             token_allocations,
-            false
+            100,
+            10,
+            poolsettings
         );
 
         debug::print<address>(&address_of(creator));

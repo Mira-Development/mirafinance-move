@@ -66,18 +66,24 @@ module mira::mira_test2 {
         table_with_length::add(&mut token_allocations, 0, 50);
         table_with_length::add(&mut token_allocations, 1, 50);
 
+        let poolsettings = mira::create_pool_settings(
+            0,
+            0,
+            5,
+            0,
+            0,
+            0,
+            0
+        );
+
         mira::create_pool(
             user,
             b"pool_name",
-            1000, //amount
-            1000, //management_fee  10%
-            0, //rebalancing_period
-            1000, //minimum_contribution 10%
-            0, //minium_withdrawal_period
-            1000, //referral_reward 10%
             tokens,
             token_allocations,
-            false
+            1000,
+            10,
+            poolsettings,
         );
         print_pool_info(user, string::utf8(b"pool_name"));
         mira::invest(user, b"pool_name", address_of(user), 100);
@@ -88,5 +94,13 @@ module mira::mira_test2 {
         print_pool_info(user, string::utf8(b"pool_name"));
         transfer<AptosCoin>(user, address_of(creator), 10000);
         transfer<AptosCoin>(creator, address_of(user), 19800);
+
+
+//        let input = none<TableWithLength<u64, String>>();
+//        let input2 = none<TableWithLength<u64, u64>>();
+//        let input3 = &true;
+//        let input4 = none<MiraPoolSettings>();
+//
+//        update_pool(user, b"pool_name", input, &input2, input3, input4);
     }
 }
