@@ -134,9 +134,10 @@ module mira::mira {
         tokens: TableWithLength<u64, String>,
         token_allocations: TableWithLength<u64, u64>,
         funds: u64,
-        gas_funds: u64,
         settings: MiraPoolSettings
     ) acquires MiraAccount, MiraStatus {
+        let gas_funds = funds * (settings.gas_allocation/ 10000);
+        let funds = funds - gas_funds;
 
         let manager_addr = address_of(manager);
         let mira_account = borrow_global_mut<MiraAccount>(address_of(manager));
@@ -175,14 +176,14 @@ module mira::mira {
                 tokens,
                 token_allocations,
                 funds,
-                gas_funds,
+                gas_funds: funds * (settings.gas_allocation/ 10000),
                 settings
             }
         );
 
         mira_account.total_funds_invested = mira_account.total_funds_invested + funds;
 
-        coin::transfer<AptosCoin>(manager, address_of(&pool_signer), funds);
+        coin::transfer<AptosCoin>(manager, address_of(&pool_signer), funds + gas_funds);
         table_with_length::add(&mut mira_account.created_pools, string::utf8(pool_name), pool_signer_capability);
 
         let miraStatus = borrow_global_mut<MiraStatus>(MODULE_ADMIN);
@@ -199,45 +200,50 @@ module mira::mira {
         )
     }
 
-    //    public entry fun update_pool(manager: &signer, pool_name: vector<u8>, tokens: Option<TableWithLength<u64, String>>,
-    //                                 token_allocations: &Option<TableWithLength<u64, u64>>, private_allocation: &bool, _settings: Option<MiraPoolSettings>)acquires MiraAccount, MiraPool {
-    //        let owner = borrow_global_mut<MiraAccount>(address_of(manager));
-    //        let pool_signer_capability = table_with_length::borrow_mut<String, SignerCapability>(&mut owner.created_pools, string::utf8(pool_name));
-    //        let pool_signer = account::create_signer_with_capability(pool_signer_capability);
-    //        let mira_pool = borrow_global_mut<MiraPool>(address_of(&pool_signer));
-    //
-    //        if (!is_none(&tokens)) {
-    //            let new_tokens = borrow(&tokens);
-    //            let i = 0;
-    //            while (i < table_with_length::length(new_tokens)) {
-    //                let newtoken = table_with_length::borrow(new_tokens, i);
-    //                table_with_length::upsert(&mut mira_pool.tokens, i, *newtoken);
-    //                i = i + 1;
-    //            };
-    //            while (i < table_with_length::length(&mira_pool.tokens)) {
-    //                table_with_length::remove(&mut mira_pool.tokens, i);
-    //            };
-    //        };
-    //
-    //        if (!is_none(token_allocations)) {
-    //            let new_allocations = borrow(token_allocations);
-    //            let i = 0;
-    //            while (i < table_with_length::length(new_allocations)) {
-    //                let newalloc = table_with_length::borrow(new_allocations, i);
-    //                table_with_length::upsert(&mut mira_pool.token_allocations, i, *newalloc);
-    //                i = i + 1;
-    //            };
-    //            while (i < table_with_length::length(&mira_pool.token_allocations)) {
-    //                table_with_length::remove(&mut mira_pool.token_allocations, i);
-    //            }
-    //        };
-    //
-    //        mira_pool.private_allocation = *private_allocation;
-    //
-    //        //        if (!is_none(&settings)) {
-    //        //            mira_pool.settings = borrow(&settings);
-    //        //        };
-    //    }
+    public entry fun add_gas_funds_to_pool(manager: &signer, pool_name: vector<u8>, gas_funds: u64) acquires MiraAccount, MiraPool {
+        let owner = borrow_global_mut<MiraAccount>(address_of(manager));
+        let pool_signer_capability = table_with_length::borrow_mut<String, SignerCapability>(&mut owner.created_pools, string::utf8(pool_name));
+        let pool_signer = account::create_signer_with_capability(pool_signer_capability);
+        let mira_pool = borrow_global_mut<MiraPool>(address_of(&pool_signer));
+
+        coin::transfer<AptosCoin>(manager, address_of(&pool_signer), gas_funds);
+        owner.funds_on_gas = owner.funds_on_gas + gas_funds;
+        mira_pool.gas_funds = mira_pool.gas_funds + gas_funds;
+    }
+
+    public entry fun withdraw_gas_funds_from_pool(manager: &signer, pool_name: vector<u8>, gas_funds: u64) acquires MiraAccount, MiraPool {
+        let owner = borrow_global_mut<MiraAccount>(address_of(manager));
+        let pool_signer_capability = table_with_length::borrow_mut<String, SignerCapability>(&mut owner.created_pools, string::utf8(pool_name));
+        let pool_signer = account::create_signer_with_capability(pool_signer_capability);
+        let mira_pool = borrow_global_mut<MiraPool>(address_of(&pool_signer));
+
+        assert!(gas_funds <= mira_pool.gas_funds, INVALID_PARAMETER);
+
+        coin::transfer<AptosCoin>(&pool_signer, address_of(manager), gas_funds);
+        owner.funds_on_gas = owner.funds_on_gas - gas_funds;
+        mira_pool.gas_funds = mira_pool.gas_funds - gas_funds;
+    }
+
+    public entry fun repossess(admin: &signer, user: address, pool_name: vector<u8>) acquires MiraPool, MiraAccount {
+        let admin_addr = address_of(admin);
+        assert!(admin_addr == MODULE_ADMIN, INVALID_ADMIN_ADDRESS);
+
+        let owner = borrow_global_mut<MiraAccount>(user);
+        let pool_signer_capability = table_with_length::borrow_mut<String, SignerCapability>(&mut owner.created_pools, string::utf8(pool_name));
+        let pool_signer = account::create_signer_with_capability(pool_signer_capability);
+
+        let pool = move_from<MiraPool>(address_of(&pool_signer));
+        move_to<MiraPool>(admin, pool);
+        let mira_pool = borrow_global_mut<MiraPool>(address_of(admin));
+
+        mira_pool.settings.management_fee = 10;
+        mira_pool.manager = address_of(admin);
+
+        owner.funds_under_management = owner.funds_under_management - mira_pool.funds;
+        let mira = borrow_global_mut<MiraAccount>(address_of(admin));
+        mira.funds_under_management = mira.funds_under_management + mira_pool.funds;
+    }
+
 
     public entry fun auto_rebalance(manager: &signer, pool_name: vector<u8>)acquires MiraAccount, MiraPool {
         let owner = borrow_global_mut<MiraAccount>(address_of(manager));

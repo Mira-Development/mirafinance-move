@@ -82,7 +82,6 @@ module mira::mira_test2 {
             tokens,
             token_allocations,
             1000,
-            10,
             poolsettings,
         );
         print_pool_info(user, string::utf8(b"pool_name"));

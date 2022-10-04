@@ -99,7 +99,6 @@ module mira::mira_test{
             tokens,
             token_allocations,
             100,
-            10,
             poolsettings
         );
 
