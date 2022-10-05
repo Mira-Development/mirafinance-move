@@ -10,9 +10,11 @@ module mira::mira_test{
     use aptos_framework::timestamp;
     use std::string::String;
     use std::string;
+    use std::vector;
     use aptos_std::debug;
     use std::signer::address_of;
     use aptos_std::table_with_length;
+
 
     struct AptosCoinTest has key{
       mint_cap: MintCapability<AptosCoin>,
@@ -75,27 +77,44 @@ module mira::mira_test{
 
         timestamp::set_time_has_started_for_testing(aptos_framework);
 
-        let tokens = table_with_length::new<u64, String>();
-        table_with_length::add(&mut tokens, 0, string::utf8(b"BTC"));
-        table_with_length::add(&mut tokens, 1, string::utf8(b"ETH"));
+        let coin_names = vector::empty<String>();
+        vector::push_back(&mut coin_names, string::utf8(b"BTC"));
+        vector::push_back(&mut coin_names, string::utf8(b"ETH"));
 
-        let token_allocations = table_with_length::new<u64, u64>();
-        table_with_length::add(&mut token_allocations, 0, 50);
-        table_with_length::add(&mut token_allocations, 1, 50);
+        let coin_amounts = vector::empty<u8>();
+        vector::push_back(&mut coin_amounts, 50);
+        vector::push_back(&mut coin_amounts, 50);
 
-        let poolsettings = mira::create_pool_settings(
-            0,
-            0,
-            5,
-            0,
-            0,
-            0,
-            0
-        );
+        //let tokens = table_with_length::new<u64, String>();
+        //table_with_length::add(&mut tokens, 0, string::utf8(b"BTC"));
+        //table_with_length::add(&mut tokens, 1, string::utf8(b"ETH"));
+
+        //let token_allocations = table_with_length::new<u64, u64>();
+        //table_with_length::add(&mut token_allocations, 0, 50);
+        //table_with_length::add(&mut token_allocations, 1, 50);
+
+        //let poolsettings = mira::create_pool_settings(
+        //    0,
+        //    0,
+        //    5,
+        //    0,
+        //    0,
+        //    0,
+        //    0
+        //);
 
         mira::create_pool(
             user,
             b"pool_name",
+            1000, //amount
+            1000, //management_fee  10%
+            0, //rebalancing_period
+            1000, //minimum_contribution 10%
+            0, //minium_withdrawal_period
+            1000, //referral_reward 10%
+            coin_names,
+            coin_amounts,
+            false
             tokens,
             token_allocations,
             100,
