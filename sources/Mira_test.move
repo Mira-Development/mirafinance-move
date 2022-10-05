@@ -114,7 +114,7 @@ module mira::mira_test{
             1000, //referral_reward 10%
             coin_names,
             coin_amounts,
-            false
+            false,
             tokens,
             token_allocations,
             100,

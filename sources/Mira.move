@@ -12,10 +12,8 @@ module mira::mira {
     use std::string::String;
     use aptos_std::debug;
     use aptos_framework::account::SignerCapability;
-    use aptos_std::table::Table;
-    use std::signer::address_of;
-    use aptos_std::table_with_length;
-    use aptos_std::table_with_length::TableWithLength;
+    use std::signer::{Self, address_of};
+    use aptos_std::table_with_length::{Self, TableWithLength};
 
     const MODULE_ADMIN: address = @mira;
 
@@ -27,6 +25,7 @@ module mira::mira {
 
     struct MiraStatus has key {
         create_pool_events: EventHandle<MiraPoolCreateEvent>,
+        update_pool_events: EventHandle<MiraPoolUpdateEvent>,
         deposit_pool_events: EventHandle<MiraPoolDepositEvent>,
         withdraw_pool_events: EventHandle<MiraPoolWithdrawEvent>
     }
@@ -36,16 +35,13 @@ module mira::mira {
         created: u64, //in seconds
         pool_address: address,
         manager: address,
-        investors: Table<address, u64>,
-        index_allocation: Table<String, u8>,
+        investors: TableWithLength<address, u64>,
+        index_allocation: vector<u8>, // list of index allocation
+        index_list: vector<String>, // list of index_name
         amount: u64,
-        deposit_fee: u64,
-        private_allocation: bool,
-        settings: MiraPoolSettings,
-        tokens: TableWithLength<u64, String>,
-        token_allocations: TableWithLength<u64, u64>,
-        funds: u64,
         gas_funds: u64,
+        private_allocation: bool,
+        settings: MiraPoolSettings
     }
 
     struct MiraPoolSettings has store, copy, drop {
@@ -53,9 +49,7 @@ module mira::mira {
         rebalancing_period: u64,
         minimum_contribution: u64,
         minimum_withdrawal: u64,
-        private_fund: u64,
-        private_allocation: u64,
-        gas_allocation: u64
+        referral_reward: u64
     }
 
     struct MiraAccount has key {
@@ -65,8 +59,8 @@ module mira::mira {
         funds_under_management: u64,
         funds_on_gas: u64,
         funds_on_management: u64,
-        created_pools: Table<String, SignerCapability>,
-        invested_pools: Table<String, SignerCapability>
+        created_pools: TableWithLength<String, SignerCapability>,
+        invested_pools: TableWithLength<String, SignerCapability>
     }
 
     //emit during creating pool
@@ -74,11 +68,20 @@ module mira::mira {
         pool_name: String,
         pool_owner: address,
         pool_address: address,
-        private_allocation: u64,
+        private_allocation: bool,
         management_fee: u64,
         founded: u64,
         timestamp: u64
     }
+    struct MiraPoolUpdateEvent has store, drop{
+        pool_name: String,
+        pool_owner: address,
+        pool_address: address,
+        private_allocation: bool,
+        management_fee: u64,
+        timestamp: u64
+    }
+
     //
     struct MiraPoolDepositEvent has store, drop {
         pool_name: String,
@@ -100,8 +103,9 @@ module mira::mira {
 
         move_to(admin, MiraStatus{
             create_pool_events: account::new_event_handle<MiraPoolCreateEvent>(admin),
+            update_pool_events: account::new_event_handle<MiraPoolUpdateEvent>(admin),
             deposit_pool_events: account::new_event_handle<MiraPoolDepositEvent>(admin),
-	          withdraw_pool_events: account::new_event_handle<MiraPoolWithdrawEvent>(admin)            
+	        withdraw_pool_events: account::new_event_handle<MiraPoolWithdrawEvent>(admin)
         });
     }
 
@@ -115,26 +119,29 @@ module mira::mira {
                 funds_under_management: 0,
                 funds_on_gas: 0,
                 funds_on_management: 0,
-                created_pools: table::new<String, SignerCapability>(),
-                invested_pools: table::new<String, SignerCapability>()
+                created_pools: table_with_length::new<String, SignerCapability>(),
+                invested_pools: table_with_length::new<String, SignerCapability>()
             })
         };
     }
 
-    public entry fun create_pool_settings(management_fee: u64, rebalancing_period: u64, minimum_contribution: u64,
-                  minimum_withdrawal: u64, private_fund: u64, private_allocation: u64, gas_allocation: u64): MiraPoolSettings {
+    public entry fun create_pool_settings(
+        management_fee: u64,
+        rebalancing_period: u64,
+        minimum_contribution: u64,
+        minimum_withdrawal: u64,
+        referral_reward: u64,
+    ): MiraPoolSettings {
         assert!(management_fee <= 10000, INVALID_PARAMETER); //100%
-        assert!(gas_allocation <= 10000, INVALID_PARAMETER); //100%
         assert!(minimum_contribution >= 5, INVALID_PARAMETER); //$5
-
         MiraPoolSettings {
-            management_fee, rebalancing_period, minimum_contribution, minimum_withdrawal, private_fund, private_allocation, gas_allocation
+            management_fee, rebalancing_period, minimum_contribution, minimum_withdrawal, referral_reward
         }
     }
 
     public entry fun print_pool_info(user: &signer, pool_name: String) acquires MiraAccount, MiraPool {
         let acct = borrow_global_mut<MiraAccount>(signer::address_of(user));
-        let signercap = table::borrow(&acct.created_pools, pool_name);
+        let signercap = table_with_length::borrow(&acct.created_pools, pool_name);
         let pool_signer = account::create_signer_with_capability(signercap);
         let mira_pool = borrow_global_mut<MiraPool>(signer::address_of(&pool_signer));
         debug::print(mira_pool);
@@ -156,50 +163,48 @@ module mira::mira {
         manager: &signer,
         pool_name: vector<u8>,
         amount: u64,
-        deposit_fee: u64,
+        gas_funds: u64,
         management_fee: u64,
-        rebalancing_period: u8,
+        rebalancing_period: u64,
         minimum_contribution: u64,
         minimum_withdrawal: u64,
         referral_reward: u64,
         index_allocation_key: vector<String>,
         index_allocation_value: vector<u8>,
         private_allocation: bool,
-        tokens: TableWithLength<u64, String>,
-        token_allocations: TableWithLength<u64, u64>,
-        funds: u64,
     ) acquires MiraAccount, MiraStatus {
-        let gas_funds = funds * (settings.gas_allocation/ 10000);
-        let funds = funds - gas_funds;
 
         let manager_addr = address_of(manager);
-        let mira_account = borrow_global_mut<MiraAccount>(address_of(manager));
+        let mira_account = borrow_global_mut<MiraAccount>(manager_addr);
 
-        assert!(!table::contains(&mut mira_account.created_pools, string::utf8(pool_name)), DUPLICATE_NAME);
+        assert!(!table_with_length::contains(&mut mira_account.created_pools, string::utf8(pool_name)), DUPLICATE_NAME);
         // check that pool_name is unique
         assert!(!string::is_empty(&string::utf8(pool_name)), INVALID_PARAMETER);
         assert!(amount > 0, INVALID_PARAMETER);
-        assert!(deposit_fee > 0, INVALID_PARAMETER);
+        assert!(gas_funds > 0, INVALID_PARAMETER);
+        assert! ( vector::length(&index_allocation_key) == vector::length(&index_allocation_value), INVALID_PARAMETER);
+        assert!(management_fee <= 10000, INVALID_PARAMETER); //100%
+        assert!(minimum_contribution <= 10000, INVALID_PARAMETER); //100%
 
         let (pool_signer, pool_signer_capability) = account::create_resource_account(manager, pool_name);
         coin::register<AptosCoin>(&pool_signer);
 
+        let settings = create_pool_settings( management_fee, rebalancing_period, minimum_contribution, minimum_withdrawal, referral_reward);
+
         let investors = table_with_length::new<address, u64>();
-        table_with_length::add(&mut investors, manager_addr, funds);
+        table_with_length::add(&mut investors, manager_addr, amount);
 
-        let index_allocation = table::new<String, u8>();
+        let sum_allocation:u8 = 0;
         let i = 0;
-        let total_allocation = 0;
-        assert!(table_with_length::length(&tokens) == table_with_length::length(&token_allocations), INVALID_PARAMETER);
-
-        while (i < table_with_length::length(&token_allocations)) {
-            let index = *table_with_length::borrow(&tokens, i);
-            assert!(!string::is_empty(&index), INVALID_PARAMETER);
-            total_allocation = total_allocation + *table_with_length::borrow(&token_allocations, i);
-            assert!(total_allocation <= 100, INVALID_PARAMETER);
+        while (i < vector::length(&index_allocation_key)){
+            let index_alloc_value:u8 = *vector::borrow(&index_allocation_value, i);
+            assert!(!string::is_empty(vector::borrow(&index_allocation_key, i)), INVALID_PARAMETER);
+            assert!(index_alloc_value < 100, INVALID_PARAMETER);
             i = i + 1;
+            sum_allocation = sum_allocation + index_alloc_value;
         };
-        assert!(total_allocation == 100, INVALID_PARAMETER);
+        assert!(sum_allocation == 100, INVALID_PARAMETER);
+
         let created = timestamp::now_seconds();
         move_to(&pool_signer,
             MiraPool {
@@ -208,23 +213,20 @@ module mira::mira {
                 manager: manager_addr,
                 created,
                 investors,
-                index_allocation,
+                index_list: index_allocation_key,
+                index_allocation: index_allocation_value,
                 amount,
-                deposit_fee,
+                gas_funds,
                 private_allocation,
-                tokens,
-                token_allocations,
-                funds,
-                gas_funds: funds * (settings.gas_allocation/ 10000),
                 settings
             }
         );
 
-        mira_account.total_funds_invested = mira_account.total_funds_invested + funds;
+        mira_account.total_funds_invested = mira_account.total_funds_invested + amount;
 
-        coin::transfer<AptosCoin>(manager, signer::address_of(&pool_signer), amount + deposit_fee);
+        coin::transfer<AptosCoin>(manager, signer::address_of(&pool_signer), amount + gas_funds);
 
-        table::add(&mut mira_account.created_pools, string::utf8(pool_name), pool_signer_capability);
+        table_with_length::add(&mut mira_account.created_pools, string::utf8(pool_name), pool_signer_capability);
 
         let miraStatus = borrow_global_mut<MiraStatus>(MODULE_ADMIN);
         event::emit_event<MiraPoolCreateEvent>(
@@ -236,6 +238,69 @@ module mira::mira {
                 private_allocation,
                 management_fee,
                 founded: created,
+                timestamp: timestamp::now_seconds()
+            }
+        )
+    }
+
+    public entry fun update_pool(
+        manager: &signer,
+        pool_name: vector<u8>,
+        management_fee: u64,
+        rebalancing_period: u64,
+        minimum_contribution: u64,
+        minimum_withdrawal: u64,
+        referral_reward: u64,
+        index_allocation_key: vector<String>,
+        index_allocation_value: vector<u8>,
+        private_allocation: bool,
+    ) acquires MiraAccount, MiraStatus, MiraPool {
+        // check that pool_name is unique
+        let pool_name_str = string::utf8(pool_name);
+        assert!(!string::is_empty(&pool_name_str), INVALID_PARAMETER);
+        assert! ( vector::length(&index_allocation_key) == vector::length(&index_allocation_value), INVALID_PARAMETER);
+        assert!(management_fee <= 10000, INVALID_PARAMETER); //100%
+        assert!(minimum_contribution <= 10000, INVALID_PARAMETER); //100%
+
+        let manager_addr = address_of(manager);
+        let mira_account = borrow_global_mut<MiraAccount>(manager_addr);
+        let pool_signer_capability = table_with_length::borrow_mut<String, SignerCapability>(
+             &mut mira_account.created_pools,
+             copy pool_name_str
+        );
+        let pool_signer = account::create_signer_with_capability(pool_signer_capability);
+        let pool_signer_addr = address_of(&pool_signer);
+        let mira_pool = borrow_global_mut<MiraPool>(pool_signer_addr);
+        let sum_allocation:u8 = 0;
+        let i = 0;
+        while (i < vector::length(&index_allocation_key)){
+            let index_alloc_value:u8 = *vector::borrow(&index_allocation_value, i);
+            assert!(!string::is_empty(vector::borrow(&index_allocation_key, i)), INVALID_PARAMETER);
+            assert!(index_alloc_value < 100, INVALID_PARAMETER);
+            i = i + 1;
+            sum_allocation = sum_allocation + index_alloc_value;
+        };
+        assert!(sum_allocation == 100, INVALID_PARAMETER);
+        mira_pool.settings.management_fee = management_fee;
+        mira_pool.settings.rebalancing_period = rebalancing_period;
+        mira_pool.settings.minimum_contribution = minimum_contribution;
+        mira_pool.settings.minimum_withdrawal = minimum_withdrawal;
+        mira_pool.settings.referral_reward = referral_reward;
+
+        mira_pool.index_allocation = index_allocation_value;
+
+        mira_pool.index_list = index_allocation_key;
+        mira_pool.private_allocation = private_allocation;
+
+        let miraStatus = borrow_global_mut<MiraStatus>(MODULE_ADMIN);
+        event::emit_event<MiraPoolUpdateEvent>(
+            &mut miraStatus.update_pool_events,
+            MiraPoolUpdateEvent{
+                pool_name: pool_name_str,
+                pool_owner: manager_addr,
+                pool_address: pool_signer_addr,
+                private_allocation,
+                management_fee,
                 timestamp: timestamp::now_seconds()
             }
         )
@@ -280,9 +345,9 @@ module mira::mira {
         mira_pool.settings.management_fee = 10;
         mira_pool.manager = address_of(admin);
 
-        owner.funds_under_management = owner.funds_under_management - mira_pool.funds;
+        owner.funds_under_management = owner.funds_under_management - mira_pool.amount;
         let mira = borrow_global_mut<MiraAccount>(address_of(admin));
-        mira.funds_under_management = mira.funds_under_management + mira_pool.funds;
+        mira.funds_under_management = mira.funds_under_management + mira_pool.amount;
     }
 
 
@@ -290,16 +355,16 @@ module mira::mira {
         let owner = borrow_global_mut<MiraAccount>(address_of(manager));
         let pool_signer_capability = table_with_length::borrow_mut<String, SignerCapability>(&mut owner.created_pools, string::utf8(pool_name));
         let pool_signer = account::create_signer_with_capability(pool_signer_capability);
-        let mira_pool = borrow_global_mut<MiraPool>(address_of(&pool_signer));
-        let i = 0;
+        let _mira_pool = borrow_global_mut<MiraPool>(address_of(&pool_signer));
+        let _i = 0;
 
-        while (i < table_with_length::length(&mira_pool.token_allocations)) {
-            let _token = *table_with_length::borrow(&mira_pool.tokens, i);
-            let _token_allocation = *table_with_length::borrow(&mira_pool.tokens, i);
-            // find amounts in pool
-            // if amounts off by > 1%, swap + or -
-            i = i + 1;
-        };
+        // while (i < vector::length(&mira_pool.index_list)) {
+        //     let index_name = vector::borrow(&mira_pool.index_list, i);
+        //     let index_allocation = *table_with_length::borrow(&mira_pool.index_allocation, *index_name);
+        //     // find amounts in pool
+        //     // if amounts off by > 1%, swap + or -
+        //     i = i + 1;
+        // };
     }
 
     public entry fun invest(investor: &signer, pool_name: vector<u8>, pool_owner: address, amount: u64) acquires MiraPool, MiraAccount, MiraStatus {
@@ -307,16 +372,18 @@ module mira::mira {
 
         let investor_addr = address_of(investor);
         let owner = borrow_global_mut<MiraAccount>(pool_owner);
-        let pool_signer_capability = table::borrow_mut<String, SignerCapability>( &mut owner.created_pools, string::utf8(pool_name));
+        let pool_signer_capability = table_with_length::borrow_mut<String, SignerCapability>( &mut owner.created_pools, string::utf8(pool_name));
         let pool_signer = account::create_signer_with_capability(pool_signer_capability);
         let mira_pool = borrow_global_mut<MiraPool>(address_of(&pool_signer));
 
-        let curramount = 0;
-        if (table_with_length::contains(&mut mira_pool.investors, investor_addr)) {
-            curramount = *table_with_length::borrow(&mira_pool.investors, investor_addr);
+        if (table_with_length::contains(&mira_pool.investors, investor_addr)) {
+            let mut_curramount = table_with_length::borrow_mut(&mut mira_pool.investors, investor_addr);
+            *mut_curramount = *mut_curramount + amount ;
+
+        }else{
+            table_with_length::add(&mut mira_pool.investors, investor_addr, amount);
         };
 
-        table::upsert(&mut mira_pool.investors, investor_addr, curramount + amount);
         mira_pool.amount = mira_pool.amount + amount;
 
         coin::transfer<AptosCoin>(investor, signer::address_of(&pool_signer), amount);
@@ -335,8 +402,6 @@ module mira::mira {
 
         // //BTC
         // let btc_percent =table::borrow(&mira_pool.index_allocation, string::utf8(b"BTC"));
-
-        coin::transfer<AptosCoin>(investor, address_of(&pool_signer), amount);
 
         //BTC
         //let btc_percent =table::borrow(&mira_pool.index_allocation, string::utf8(b"BTC"));
@@ -403,15 +468,15 @@ module mira::mira {
     public entry fun withdraw(investor: &signer, pool_name: vector<u8>, pool_owner: address, amount: u64) acquires MiraPool, MiraAccount, MiraStatus {
         let investor_addr = signer::address_of(investor);
         let owner = borrow_global_mut<MiraAccount>(pool_owner);
-        let pool_signer_capability = table::borrow_mut<String, SignerCapability>( &mut owner.created_pools, string::utf8(pool_name));
+        let pool_signer_capability = table_with_length::borrow_mut<String, SignerCapability>( &mut owner.created_pools, string::utf8(pool_name));
         let pool_signer = account::create_signer_with_capability(pool_signer_capability);
         let mira_pool = borrow_global_mut<MiraPool>(address_of(&pool_signer));
-        let withdrawal_limit = table::borrow(&mut mira_pool.investors, investor_addr);
+        let withdrawal_limit = table_with_length::borrow_mut(&mut mira_pool.investors, investor_addr);
         assert!(*withdrawal_limit >= amount, INSUFFICIENT_FUNDS);
 
         mira_pool.amount = mira_pool.amount - amount;
         coin::transfer<AptosCoin>(&pool_signer, investor_addr, amount);
-        table::upsert(&mut mira_pool.investors, investor_addr, *withdrawal_limit - amount);
+        *withdrawal_limit = *withdrawal_limit - amount;
 
         let miraStatus = borrow_global_mut<MiraStatus>(MODULE_ADMIN);
         //emit deposit
