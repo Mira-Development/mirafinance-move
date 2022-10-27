@@ -186,7 +186,7 @@ module mira::mira {
         minimum_withdrawal_period: u64, // in days (0 - 730)
         referral_reward: u64,
         index_allocation_key: vector<String>,
-        index_allocation_value: vector<u8>,
+        index_allocation_value: vector<u64>,
         privacy_allocation: u8,
     ) acquires MiraAccount, MiraStatus
     {
@@ -203,7 +203,7 @@ module mira::mira {
         assert!(minimum_contribution <= MIN_CONTRIBUTION, INVALID_PARAMETER);
         assert!(privacy_allocation >=0 && privacy_allocation <3, INVALID_PARAMETER);
         assert!(minimum_withdrawal_period <= MAX_DAYS, INVALID_PARAMETER);
-        assert!(rebalancing_gas>=MIN_INPUT_AMOUNT, INSUFFICIENT_FUNDS);  //min 1000 Otas
+        assert!(rebalancing_gas>=MIN_INPUT_AMOUNT, INSUFFICIENT_FUNDS);  //min 10000 Otas
 
         let (pool_signer, pool_signer_capability) = account::create_resource_account(manager, pool_name);
         coin::register<AptosCoin>(&pool_signer);
@@ -213,10 +213,10 @@ module mira::mira {
         let investors = table_with_length::new<address, u64>();
         table_with_length::add(&mut investors, manager_addr, amount);
 
-        let sum_allocation:u8 = 0;
+        let sum_allocation:u64 = 0;
         let i = 0;
         while (i < vector::length(&index_allocation_key)){
-            let index_alloc_value:u8 = *vector::borrow(&index_allocation_value, i);
+            let index_alloc_value:u64 = *vector::borrow(&index_allocation_value, i);
             assert!(!string::is_empty(vector::borrow(&index_allocation_key, i)), INVALID_PARAMETER);
             assert!(index_alloc_value < 100, INVALID_PARAMETER);
             i = i + 1;
@@ -292,7 +292,7 @@ module mira::mira {
         minimum_withdrawal_period: u64,
         referral_reward: u64,
         index_allocation_key: vector<String>,
-        index_allocation_value: vector<u8>,
+        index_allocation_value: vector<u64>,
         privacy_allocation: u8,
     )acquires MiraAccount, MiraStatus, MiraPool
     {
@@ -313,10 +313,10 @@ module mira::mira {
         let pool_signer = account::create_signer_with_capability(pool_signer_capability);
         let pool_signer_addr = address_of(&pool_signer);
         let mira_pool = borrow_global_mut<MiraPool>(pool_signer_addr);
-        let sum_allocation:u8 = 0;
+        let sum_allocation:u64 = 0;
         let i = 0;
         while (i < vector::length(&index_allocation_key)){
-            let index_alloc_value:u8 = *vector::borrow(&index_allocation_value, i);
+            let index_alloc_value:u64 = *vector::borrow(&index_allocation_value, i);
             assert!(!string::is_empty(vector::borrow(&index_allocation_key, i)), INVALID_PARAMETER);
             assert!(index_alloc_value < 100, INVALID_PARAMETER);
             i = i + 1;
