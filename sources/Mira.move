@@ -6,14 +6,16 @@ module mira::mira {
     use aptos_framework::aptos_coin::AptosCoin;
     use aptos_framework::event::{Self, EventHandle};
     use aptos_framework::timestamp;
-    use liquidswap::router;
-    use liquidswap::curves::Uncorrelated;
-    use test_coins::coins::BTC;
     use std::string::String;
     use aptos_std::simple_map::{Self, SimpleMap};
     use aptos_framework::account::SignerCapability;
     use std::signer::{Self, address_of};
     use aptos_std::table_with_length::{Self, TableWithLength};
+    use liquidswap::router;
+    use liquidswap::curves::Uncorrelated;
+    use test_coins::coins::{BTC};
+    use test_coins_extended::coins_extended::{ETH};
+
 
     #[test_only]
     use aptos_std::debug;
@@ -53,11 +55,11 @@ module mira::mira {
         pool_address: address,
         manager_addr: address,
         rebalancing_gas: u64,  // unit: Otas, for gas fee to call rebalance..  only change by pool manager.
-        investors: TableWithLength<address, u64>,
-        index_allocation: vector<u64>, // list of index allocation
+        investors: TableWithLength<address, u64>, // map of investor's address and amount
+        index_allocation: vector<u8>, // list of index allocation
         index_list: vector<String>, // list of index_name
-        amount: u64,
-        gas_pool: u64,
+        amount: u64, //total_amount
+        gas_pool: u64, //amount for gas
         settings: MiraPoolSettings
     }
 
@@ -411,16 +413,47 @@ module mira::mira {
         let owner = borrow_global_mut<MiraAccount>(address_of(manager));
         let pool_signer_capability = table_with_length::borrow_mut<String, SignerCapability>(&mut owner.created_pools, string::utf8(pool_name));
         let pool_signer = account::create_signer_with_capability(pool_signer_capability);
-        let _mira_pool = borrow_global_mut<MiraPool>(address_of(&pool_signer));
-        let _i = 0;
+        let pool_addr = address_of(&pool_signer);
+        let mira_pool = borrow_global_mut<MiraPool>(address_of(&pool_signer));
+        let i = 0;
 
-        // while (i < vector::length(&mira_pool.index_list)) {
-        //     let index_name = vector::borrow(&mira_pool.index_list, i);
-        //     let index_allocation = *table_with_length::borrow(&mira_pool.index_allocation, *index_name);
-        //     // find amounts in pool
-        //     // if amounts off by > 1%, swap + or -
-        //     i = i + 1;
-        // };
+        while (i < vector::length(&mira_pool.index_list)) {
+            let index_name = vector::borrow<String>(&mira_pool.index_list, i);
+            let index_allocation = vector::borrow<u8>(&mira_pool.index_allocation, i);
+            let converted_amount = mira_pool.amount * (*index_allocation as u64) / 100;
+
+            //BTC
+            if ( string::index_of( &string::utf8(b"BTC"), index_name) == 0){
+                let aptos_coins_to_swap = coin::withdraw<AptosCoin>(&pool_signer, converted_amount);
+                let btc_amount_to_get = router::get_amount_out<AptosCoin, BTC, Uncorrelated>(converted_amount);
+
+                let btc = router::swap_exact_coin_for_coin<AptosCoin, BTC, Uncorrelated>(
+                    aptos_coins_to_swap,
+                    btc_amount_to_get
+                );
+                if (!coin::is_account_registered<BTC>(pool_addr)){
+                    coin::register<BTC>(&pool_signer)
+                };
+                coin::deposit(pool_addr, btc);
+                mira_pool.amount = mira_pool.amount - converted_amount;
+            } //ETH
+            else if ( string::index_of(&string::utf8(b"ETH"), index_name) == 0) {
+                let aptos_coins_to_swap = coin::withdraw<AptosCoin>(&pool_signer, converted_amount);
+                let eth_amount_to_get = router::get_amount_out<AptosCoin, ETH, Uncorrelated>(converted_amount);
+
+                let eth = router::swap_exact_coin_for_coin<AptosCoin, ETH, Uncorrelated>(
+                    aptos_coins_to_swap,
+                    eth_amount_to_get
+                );
+                if (!coin::is_account_registered<ETH>(pool_addr)){
+                    coin::register<ETH>(&pool_signer)
+                };
+                coin::deposit(pool_addr, eth);
+                mira_pool.amount = mira_pool.amount - converted_amount;
+            };
+
+            i = i + 1;
+        };
     }
 
     public entry fun invest(
@@ -430,7 +463,7 @@ module mira::mira {
         amount: u64
     )acquires MiraPool, MiraAccount, MiraStatus, MiraUserWithdraw
     {
-        assert!(amount>MIN_INPUT_AMOUNT, INSUFFICIENT_FUNDS);
+        assert!(amount >= MIN_INPUT_AMOUNT, INSUFFICIENT_FUNDS);
         let investor_addr = address_of(investor);
         let owner = borrow_global_mut<MiraAccount>(pool_owner);
         let pool_signer_capability = table_with_length::borrow_mut<String, SignerCapability>( &mut owner.created_pools, string::utf8(pool_name));
@@ -511,6 +544,58 @@ module mira::mira {
         //     usdt_amount_to_get
         // );
         // coin::deposit(signer::address_of(&pool_signer), usdt);
+    }
+
+    // Swap from investor's apt token to specified coin using liquidswap
+    public entry fun auto_swap(
+        investor: &signer,
+        pool_name: vector<u8>,
+        pool_owner: address,
+        amount: u64,
+        coin_name: vector<u8>
+    )acquires MiraPool, MiraAccount
+    {
+        assert!(amount>=MIN_INPUT_AMOUNT, INSUFFICIENT_FUNDS);
+        let investor_addr = address_of(investor);
+        let owner = borrow_global_mut<MiraAccount>(pool_owner);
+        let pool_signer_capability = table_with_length::borrow_mut<String, SignerCapability>( &mut owner.created_pools, string::utf8(pool_name));
+        let pool_signer = account::create_signer_with_capability(pool_signer_capability);
+        let pool_addr = address_of(&pool_signer);
+        let mira_pool = borrow_global_mut<MiraPool>(pool_addr);
+        let coin_name_str = string::utf8(coin_name);
+        let mut_curramount = table_with_length::borrow_mut(&mut mira_pool.investors, investor_addr);
+        assert!( amount <= *mut_curramount, INSUFFICIENT_FUNDS);
+        *mut_curramount = *mut_curramount  - amount;
+
+        //BTC
+        if( string::index_of( &string::utf8(b"BTC"), &coin_name_str) == 0){
+            let aptos_coins_to_swap = coin::withdraw<AptosCoin>(&pool_signer, amount);
+            let btc_amount_to_get = router::get_amount_out<AptosCoin, BTC, Uncorrelated>(amount);
+
+            let btc = router::swap_exact_coin_for_coin<AptosCoin, BTC, Uncorrelated>(
+                aptos_coins_to_swap,
+                btc_amount_to_get
+            );
+            if (!coin::is_account_registered<BTC>(pool_addr)){
+                coin::register<BTC>(&pool_signer)
+            };
+            coin::deposit(pool_addr, btc);
+        } //ETH
+        else if ( string::index_of(&string::utf8(b"ETH"), &coin_name_str) == 0) {
+            let aptos_coins_to_swap = coin::withdraw<AptosCoin>(&pool_signer, amount);
+            let eth_amount_to_get = router::get_amount_out<AptosCoin, ETH, Uncorrelated>(amount);
+
+            let eth = router::swap_exact_coin_for_coin<AptosCoin, ETH, Uncorrelated>(
+                aptos_coins_to_swap,
+                eth_amount_to_get
+            );
+            if (!coin::is_account_registered<ETH>(pool_addr)){
+                coin::register<ETH>(&pool_signer)
+            };
+            coin::deposit(pool_addr, eth);
+        };
+
+
     }
 
     public entry fun swap_aptos(account: &signer, amount: u64, min_value_to_get: u64) {
