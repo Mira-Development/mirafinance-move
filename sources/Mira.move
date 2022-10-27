@@ -29,6 +29,7 @@ module mira::mira {
     const INVALID_PARAMETER: u64 = 4;
     const DUPLICATE_NAME: u64 = 5;
     const NO_REACHED_WITHDRAWAL_TIME:u64 = 6;
+    const CANNOT_UPDATE_MANAGEMENT_FEE:u64 = 7;
 
     const FEE_DECIMAL:u64 = 10000;
     const MAX_MANAGEMENT_FEE:u64 = 5000; //50%
@@ -56,11 +57,12 @@ module mira::mira {
         manager_addr: address,
         rebalancing_gas: u64,  // unit: Otas, for gas fee to call rebalance..  only change by pool manager.
         investors: TableWithLength<address, u64>, // map of investor's address and amount
-        index_allocation: vector<u8>, // list of index allocation
+        index_allocation: vector<u64>, // list of index allocation
         index_list: vector<String>, // list of index_name
         amount: u64, //total_amount
         gas_pool: u64, //amount for gas
-        settings: MiraPoolSettings
+        settings: MiraPoolSettings,
+        management_fee_updated: u64 // timestamp
     }
 
     struct MiraPoolSettings has store, copy, drop {
@@ -237,7 +239,8 @@ module mira::mira {
                 amount,
                 gas_pool: gas_amount,
                 rebalancing_gas,
-                settings
+                settings,
+                management_fee_updated: created
             }
         );
 
@@ -382,6 +385,32 @@ module mira::mira {
         mira_pool.gas_pool = mira_pool.gas_pool - amount;
     }
 
+    public entry fun management_fee_update(
+        manager: &signer,
+        pool_name: vector<u8>,
+        management_fee: u64
+    ) acquires MiraPool, MiraAccount
+    {
+        let pool_name_str = string::utf8(pool_name);
+        let manager_addr = address_of(manager);
+        let mira_account = borrow_global<MiraAccount>(manager_addr);
+        let pool_signer_capability = table_with_length::borrow<String, SignerCapability>(
+             &mira_account.created_pools,
+             pool_name_str
+        );
+        let pool_signer = account::create_signer_with_capability(pool_signer_capability);
+        let pool_signer_addr = address_of(&pool_signer);
+        let mira_pool = borrow_global_mut<MiraPool>(pool_signer_addr);
+
+        assert!(management_fee <= MAX_MANAGEMENT_FEE, INVALID_PARAMETER);
+
+        let now = timestamp::now_seconds();
+        assert!( mira_pool.management_fee_updated + 86400 * 365 < now, CANNOT_UPDATE_MANAGEMENT_FEE);
+        mira_pool.settings.management_fee = management_fee;
+
+        mira_pool.management_fee_updated = now;
+
+    }
     //Move Pool from owner to Admin
     public entry fun repossess(
         admin: &signer,
@@ -419,7 +448,7 @@ module mira::mira {
 
         while (i < vector::length(&mira_pool.index_list)) {
             let index_name = vector::borrow<String>(&mira_pool.index_list, i);
-            let index_allocation = vector::borrow<u8>(&mira_pool.index_allocation, i);
+            let index_allocation = vector::borrow<u64>(&mira_pool.index_allocation, i);
             let converted_amount = mira_pool.amount * (*index_allocation as u64) / 100;
 
             //BTC
