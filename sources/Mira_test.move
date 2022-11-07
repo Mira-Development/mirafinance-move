@@ -13,8 +13,6 @@ module mira::mira_test{
     use std::vector;
     use aptos_std::debug;
     use std::signer::address_of;
-    use aptos_std::table_with_length;
-
 
     struct AptosCoinTest has key{
       mint_cap: MintCapability<AptosCoin>,
@@ -81,7 +79,7 @@ module mira::mira_test{
         vector::push_back(&mut coin_names, string::utf8(b"BTC"));
         vector::push_back(&mut coin_names, string::utf8(b"ETH"));
 
-        let coin_amounts = vector::empty<u8>();
+        let coin_amounts = vector::empty<u64>();
         vector::push_back(&mut coin_amounts, 50);
         vector::push_back(&mut coin_amounts, 50);
 
@@ -106,19 +104,17 @@ module mira::mira_test{
         mira::create_pool(
             user,
             b"pool_name",
-            1000, //amount
-            1000, //management_fee  10%
-            0, //rebalancing_period
-            1000, //minimum_contribution 10%
-            0, //minium_withdrawal_period
-            1000, //referral_reward 10%
+            1000,
+            1000,
+            0,
+            1000,
+            0,
+            1000,
+            0,
+            0,
             coin_names,
             coin_amounts,
-            false,
-            tokens,
-            token_allocations,
-            100,
-            poolsettings
+            0
         );
 
         debug::print<address>(&address_of(creator));
