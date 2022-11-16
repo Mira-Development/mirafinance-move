@@ -5,26 +5,26 @@ version = '0.0.8'
 
 [dependencies.AptosFramework]
 #local = "../aptos-core/aptos-move/framework/aptos-framework"
-git = "https://github.com/aptos-labs/aptos-core.git"
-subdir = "aptos-move/framework/aptos-framework"
-rev = 'v1.0.0'
+local = "../../.move/https___github_com_aptos-labs_aptos-core_git_main/aptos-move/framework/aptos-framework"
+#git = "https://github.com/aptos-labs/aptos-core.git"
+#subdir = "aptos-move/framework/aptos-framework"
+#rev = 'main'
 
 #[dependencies.Liquidswap]
-#local = "../liquidswap"
-##aptos = {local = "../aptos-core/aptos-move/framework/aptos-framework"}
-##git = 'https://github.com/pontem-network/liquidswap.git'
-##rev = 'v0.4.3'
+##local = "../liquidswap"
+#git = 'https://github.com/pontem-network/liquidswap.git'
+#rev = 'v1.0.0'
 #
 #[dependencies.LiquidswapRouterV2]
-#local = "../liquidswap/liquidswap_router_v2"
-##git = 'https://github.com/pontem-network/liquidswap.git'
-##subdir = 'liquidswap_router_v2/'
-##rev = 'v0.4.3'
-#
+##local = "../liquidswap/liquidswap_router_v2"
+#git = 'https://github.com/pontem-network/liquidswap.git'
+#subdir = 'liquidswap_router_v2/'
+#rev = 'v1.0.0'
+
 #[dependencies.TestCoins]
-#local = "../test-coins"
-##git = 'https://github.com/pontem-network/test-coins.git'
-##rev = 'v0.1.2'
+##local = "../test-coins"
+#git = 'https://github.com/pontem-network/test-coins.git'
+#rev = 'v0.1.2'
 
 [addresses]
 #make this multisig after audit
