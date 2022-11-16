@@ -471,11 +471,11 @@ module mira::mira {
     entry fun update_stakes(investor: address, pool_addr: address, amount: u64,
                             invest_or_withdraw: u8, fund_value: u64)acquires MiraPool {
         let mira_pool = borrow_global_mut<MiraPool>(pool_addr);
-        let stake_divisor = (fund_value + amount) / (amount / 10);
-        let fee = (mira_pool.management_fee / stake_divisor) * 10;
+        let stake_divisor = (fund_value + amount) / (amount / 10000);
+        let fee = (mira_pool.management_fee / stake_divisor) * 10000;
         let stake_map = &mut mira_pool.investors;
 
-        if (invest_or_withdraw == 1) { stake_divisor = (fund_value - amount) / (amount / 10); };
+        if (invest_or_withdraw == 1) { stake_divisor = (fund_value - amount) / (amount / 10000); };
 
         //change every previous investor's stake by %
         let i = 0;
@@ -484,57 +484,30 @@ module mira::mira {
             let (_, _, next) = borrow_iter(stake_map, *option::borrow(&key));
             let val = iterable_table::borrow_mut(stake_map, *option::borrow(&key));
 
-            // current investor's stake
-            if (option::borrow(&key) == &investor) {
-                if (invest_or_withdraw == 0) {
-                    // if investor is also the manager (manager invests in their own pool)
-                    if (investor != mira_pool.manager_addr){
-                        *val = *val - (*val / stake_divisor * 10);
-                        *val = *val + (TOTAL_INVESTOR_STAKE / stake_divisor * 10) - fee;
-                    } else {
-                        *val = *val - (*val / stake_divisor * 10);
-                        *val = *val + (TOTAL_INVESTOR_STAKE / stake_divisor * 10);//(TOTAL_INVESTOR_STAKE / stake_divisor * 10);
-                    }
-                } else {
-                    *val = *val - (amount * UNIT_DECIMAL * 100 / fund_value); //(amount * UNIT_DECIMAL * 100 / fund_value);
-                    *val = *val + (*val / stake_divisor * 10)
-                };
-                key = next;
-                i = i + 1;
-                continue
-            };
-
+            // iterate through all previous investors
             if (invest_or_withdraw == 0) {
-                *val = *val - (*val / stake_divisor * 10);
+                *val = *val - (*val / stake_divisor * 10000);
+                // current investor's stake
+                if (option::borrow(&key) == &investor) {
+                    *val = *val + (TOTAL_INVESTOR_STAKE / stake_divisor * 10000) - fee;
+                };
                 // manager's stake
                 if (option::borrow(&key) == &mira_pool.manager_addr){
                     *val = *val + fee;
                 }
             } else {
-                *val = *val + (*val / stake_divisor * 10);
-                //* UNIT_DECIMAL / (UNIT_DECIMAL - UNIT_DECIMAL / stake_divisor * 10);
+                if (option::borrow(&key) == &investor) {
+                    *val = *val - (amount * UNIT_DECIMAL * 100 / fund_value);
+                };
+                *val = *val + (*val / stake_divisor * 10000);
             };
 
             key = next;
             i = i + 1;
         };
         if (!iterable_table::contains(stake_map, investor)) {
-            iterable_table::add(stake_map, investor, (TOTAL_INVESTOR_STAKE / stake_divisor * 10) - fee);
+            iterable_table::add(stake_map, investor, (TOTAL_INVESTOR_STAKE / stake_divisor * 10000) - fee);
         };
-
-        // if (invest_or_withdraw == 1) { return };
-        //
-        // // change investor's stake by stake & fee
-        // if (iterable_table::contains(stake_map, investor)) {
-        //     let investor_stake = iterable_table::borrow_mut(stake_map, investor);
-        //     *investor_stake = *investor_stake + (TOTAL_INVESTOR_STAKE / stake_divisor * 10) - fee;
-        // } else {
-        //     iterable_table::add(stake_map, investor, (TOTAL_INVESTOR_STAKE / stake_divisor * 10) - fee);
-        // };
-        //
-        // // change manager's stake by fee
-        // let manager_stake = iterable_table::borrow_mut(stake_map, mira_pool.manager_addr);
-        // *manager_stake = *manager_stake + fee;
     }
 
     public entry fun withdraw<CoinX>(

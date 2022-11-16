@@ -10,8 +10,7 @@ module mira::test1 {
     use mira::coins;
     // use std::string;
     use std::vector;
-    use mira::mira::{print_investor_stakes, print_real_pool_distribution};
-    use std::string;
+    use mira::mira::{print_investor_stakes, };
 
     const UNIT_DECIMAL: u64 = 100000000;
 
@@ -99,15 +98,11 @@ module mira::test1 {
         simple_invest(carl, alice_acct, 10 * UNIT_DECIMAL); // carl invests 10 APT in alice's pool worth 12 APT, giving him x stake after fees
 
         simple_withdraw(bob, alice_acct, 1 * UNIT_DECIMAL); // bob has 1.9575 to withdraw
-        print_investor_stakes(alice_acct, b"simple_portfolio");
         simple_withdraw(bob, alice_acct, 9 * UNIT_DECIMAL/10);
-        print_investor_stakes(alice_acct, b"simple_portfolio");
         simple_withdraw(bob, alice_acct, 5 * UNIT_DECIMAL/100);
-        print_investor_stakes(alice_acct, b"simple_portfolio");
         simple_withdraw(bob, alice_acct, 7 * UNIT_DECIMAL/1000);
-        print_investor_stakes(alice_acct, b"simple_portfolio");
         simple_withdraw(bob, alice_acct, 5 * UNIT_DECIMAL/10000); // rounding error causes some issues here
-        print_real_pool_distribution(alice_acct, string::utf8(b"simple_portfolio"));
+        //print_real_pool_distribution(alice_acct, string::utf8(b"simple_portfolio"));
         print_investor_stakes(alice_acct, b"simple_portfolio");
         simple_withdraw(carl, alice_acct, 100 * UNIT_DECIMAL);
         print_investor_stakes(alice_acct, b"simple_portfolio");
