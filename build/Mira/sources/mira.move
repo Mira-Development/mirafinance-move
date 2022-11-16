@@ -489,12 +489,15 @@ module mira::mira {
                 if (invest_or_withdraw == 0) {
                     // if investor is also the manager (manager invests in their own pool)
                     if (investor != mira_pool.manager_addr){
+                        *val = *val - (*val / stake_divisor * 10);
                         *val = *val + (TOTAL_INVESTOR_STAKE / stake_divisor * 10) - fee;
                     } else {
+                        *val = *val - (*val / stake_divisor * 10);
                         *val = *val + (TOTAL_INVESTOR_STAKE / stake_divisor * 10);//(TOTAL_INVESTOR_STAKE / stake_divisor * 10);
                     }
                 } else {
-                    *val = *val - (amount * UNIT_DECIMAL * 100 / fund_value);
+                    *val = *val - (amount * UNIT_DECIMAL * 100 / fund_value); //(amount * UNIT_DECIMAL * 100 / fund_value);
+                    *val = *val + (*val / stake_divisor * 10)
                 };
                 key = next;
                 i = i + 1;

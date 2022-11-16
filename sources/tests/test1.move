@@ -10,7 +10,7 @@ module mira::test1 {
     use mira::coins;
     // use std::string;
     use std::vector;
-    use mira::mira::{print_investor_stakes, print_account_info, print_real_pool_distribution};
+    use mira::mira::{print_investor_stakes, print_real_pool_distribution};
     use std::string;
 
     const UNIT_DECIMAL: u64 = 100000000;
@@ -109,10 +109,8 @@ module mira::test1 {
         simple_withdraw(bob, alice_acct, 5 * UNIT_DECIMAL/10000); // rounding error causes some issues here
         print_real_pool_distribution(alice_acct, string::utf8(b"simple_portfolio"));
         print_investor_stakes(alice_acct, b"simple_portfolio");
-        // simple_withdraw(carl, alice_acct, 100 * UNIT_DECIMAL);
-        // print_investor_stakes(alice_acct, b"simple_portfolio");
-
-        print_account_info(carl);
+        simple_withdraw(carl, alice_acct, 100 * UNIT_DECIMAL);
+        print_investor_stakes(alice_acct, b"simple_portfolio");
     }
 
     public entry fun create_simple_pool(manager: &signer, amount: u64, management_fee: u64){
