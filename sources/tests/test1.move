@@ -10,7 +10,7 @@ module mira::test1 {
     use mira::coins;
     // use std::string;
     use std::vector;
-    use mira::mira::{print_investor_stakes, };
+    use mira::mira::{print_investor_stakes, print_account_info, send_funds_to_user};
 
     const UNIT_DECIMAL: u64 = 100000000;
 
@@ -82,10 +82,12 @@ module mira::test1 {
         coin::transfer<APT>(bank, bob_acct, 2 * UNIT_DECIMAL);
         coin::transfer<APT>(bank, carl_acct, 10 * UNIT_DECIMAL);
         coin::transfer<BTC>(bank, daisy_acct, 2 * UNIT_DECIMAL);
+        coin::transfer<APT>(bank, daisy_acct, 20 * UNIT_DECIMAL);
 
         create_simple_pool(alice, 1005 * UNIT_DECIMAL/100, 4 * UNIT_DECIMAL); // alice deposits 10.05 APT in simple portfolio, fee @ 4%
         create_btc_pool(alice, 1 * UNIT_DECIMAL, 10 * UNIT_DECIMAL); // alice deposits 1 BTC in btc portfolio, fee @ 1%
         btc_invest(daisy, alice_acct, 2 * UNIT_DECIMAL); // daisy invests 2 BTC in btc portfolio
+        //btc_withdraw(daisy, alice_acct, 2 * UNIT_DECIMAL); // daisy withdraws max amount, TODO: fix can't withdraw in BTC bc of table issue
         update_simple_pool(alice, 2125 * UNIT_DECIMAL/1000); // alice updates fee to 2.125%, allocation, rebalancing, and rebalance_on_investment
 
         change_gas_funds(alice, 5 * UNIT_DECIMAL / 100, 1); // remove 0.05 APT from gas funds
@@ -95,17 +97,26 @@ module mira::test1 {
 
         simple_invest(bob, alice_acct, 1 * UNIT_DECIMAL); // bob invests 1 APT in alice's pool worth 10 APT, giving him 8.8% stake after fees
         simple_invest(bob, alice_acct, 1 * UNIT_DECIMAL); // bob invests another 1 APT in alice's pool worth 11 APT, giving him 16.2% stake after fees
-        simple_invest(carl, alice_acct, 10 * UNIT_DECIMAL); // carl invests 10 APT in alice's pool worth 12 APT, giving him x stake after fees
+        simple_invest(carl, alice_acct, 10 * UNIT_DECIMAL); // carl invests 10 APT in alice's pool worth 12 APT
+        simple_invest(daisy, alice_acct, 20 * UNIT_DECIMAL); // daisy invests 20 APT in alice's pool worth 22 APT
+        simple_invest(alice, alice_acct, 5 * UNIT_DECIMAL); // alice invests 5 more APT in her own pool worth 42 APT
+        print_investor_stakes(alice_acct, b"simple_portfolio");
+
 
         simple_withdraw(bob, alice_acct, 1 * UNIT_DECIMAL); // bob has 1.9575 to withdraw
         simple_withdraw(bob, alice_acct, 9 * UNIT_DECIMAL/10);
         simple_withdraw(bob, alice_acct, 5 * UNIT_DECIMAL/100);
         simple_withdraw(bob, alice_acct, 7 * UNIT_DECIMAL/1000);
         simple_withdraw(bob, alice_acct, 5 * UNIT_DECIMAL/10000); // rounding error causes some issues here
-        //print_real_pool_distribution(alice_acct, string::utf8(b"simple_portfolio"));
-        print_investor_stakes(alice_acct, b"simple_portfolio");
+        mira::lock_withdrawals(admin);
+        mira::unlock_withdrawals(admin);
         simple_withdraw(carl, alice_acct, 100 * UNIT_DECIMAL);
+        simple_withdraw(alice, alice_acct, 100 * UNIT_DECIMAL);
         print_investor_stakes(alice_acct, b"simple_portfolio");
+        // simple_withdraw(daisy, alice_acct, 100 * UNIT_DECIMAL); TODO: fix last stakeholder can't withdraw everything
+
+        send_funds_to_user<APT>(alice, daisy_acct, 10 * UNIT_DECIMAL);
+        print_account_info(daisy);
     }
 
     public entry fun create_simple_pool(manager: &signer, amount: u64, management_fee: u64){
@@ -123,6 +134,7 @@ module mira::test1 {
             simple_allocation,
             amount, // $APT 1.00000000
             management_fee, // 2.125000000%
+            0,
             10, // in days (0 - 730)
             0
         );
@@ -167,6 +179,7 @@ module mira::test1 {
             simple_allocation,
             amount, // $APT 1.00000000
             management_fee, // 2.125000000%
+            0,
             10, // in days (0 - 730)
             0
         );
@@ -198,4 +211,7 @@ module mira::test1 {
         mira::withdraw<APT>(investor, b"simple_portfolio", manager, amount);
     }
 
+    public entry fun btc_withdraw(investor: &signer, manager: address, amount: u64){
+        mira::withdraw<BTC>(investor, b"simple_portfolio", manager, amount);
+    }
 }

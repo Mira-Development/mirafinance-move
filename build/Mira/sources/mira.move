@@ -40,6 +40,7 @@ module mira::mira {
     const USER_MUST_REGISTER_THIS_TOKEN: u64 = 10;
     const NO_FUNDS_LEFT: u64 = 11;
     const ROUNDING_ERROR: u64 = 12;
+    const CREATE_MIRA_ACCOUNT: u64 = 13;
 
     // parameters
     const MAX_MANAGEMENT_FEE: u64 = 1000000000; // 10.00000000%
@@ -227,25 +228,31 @@ module mira::mira {
         token_allocations: vector<u64>,
         deposit_amount: u64,
         management_fee: u64,
+        minimum_contribution: u64,
         rebalancing_period: u64, // in days (0 - 730)
         rebalance_on_investment: u8
     ) acquires MiraAccount, MiraStatus
     {
+
         let manager_addr = address_of(manager);
+        assert!(exists<MiraAccount>(manager_addr), CREATE_MIRA_ACCOUNT); // in the future, auto-create account with random username
+
         let mira_account = borrow_global_mut<MiraAccount>(manager_addr);
+        if (minimum_contribution < GLOBAL_MIN_CONTRIBUTION){ minimum_contribution =
+            (GLOBAL_MIN_CONTRIBUTION/ UNIT_DECIMAL) * (get_exchange_rate<USDC, CoinX>() / UNIT_DECIMAL); };
 
         // all of these values will be modifiable in next update
         let minimum_withdrawal_period = 0;
-        let minimum_contribution = GLOBAL_MIN_CONTRIBUTION; //* get_exchange_rate<CoinX>()
         let privacy_allocation = PUBLIC_ALLOCATION;
         let gas_allocation = DEFAULT_GAS_ALLOCATION;
         let referral_reward = 0;
         let whitelist = table::new<u64, address>();
 
         // clean inputs for pool name, investment amount, & management fee
-        assert!(!table_with_length::contains(&mut mira_account.created_pools, string::utf8(pool_name)), DUPLICATE_NAME);
         assert!(!string::is_empty(&string::utf8(pool_name)), INVALID_PARAMETER);
-        assert!(deposit_amount >= GLOBAL_MIN_CONTRIBUTION * get_exchange_rate<CoinX>() / UNIT_DECIMAL, INSUFFICIENT_FUNDS);
+        assert!(!table_with_length::contains(&mut mira_account.created_pools, string::utf8(pool_name)), DUPLICATE_NAME);
+        assert!(deposit_amount >= (GLOBAL_MIN_CONTRIBUTION / UNIT_DECIMAL) * (get_exchange_rate<USDC, CoinX>() / UNIT_DECIMAL), INSUFFICIENT_FUNDS);
+        assert!(deposit_amount >= (minimum_contribution / UNIT_DECIMAL) * (get_exchange_rate<USDC, CoinX>() / UNIT_DECIMAL), INSUFFICIENT_FUNDS);
         assert!(vector::length(&token_names) == vector::length(&token_allocations), INVALID_PARAMETER);
         assert!(management_fee <= MAX_MANAGEMENT_FEE, INVALID_PARAMETER);
 
@@ -268,13 +275,17 @@ module mira::mira {
 
         let sum_allocation: u64 = 0;
         let i = 0;
+        let token_check = vector::empty<vector<u8>>();
         while (i < vector::length(&token_names)) {
-            let index_alloc_value: u64 = *vector::borrow(&token_allocations, i);
-            assert!(vector::contains(&VALID_TOKENS, vector::borrow(&token_names, i)), INVALID_PARAMETER);
-            //assert!(!string::is_empty(vector::borrow(&token_names, i)), INVALID_PARAMETER);
-            assert!(index_alloc_value < 100, INVALID_PARAMETER);
+            let name = vector::borrow(&token_names, i);
+            let alloc: u64 = *vector::borrow(&token_allocations, i);
+
+            assert!(vector::contains(&VALID_TOKENS, name) && !vector::contains(&token_check, name), INVALID_PARAMETER);
+            assert!(alloc < 100, INVALID_PARAMETER);
+
+            vector::push_back(&mut token_check, *name);
+            sum_allocation = sum_allocation + alloc;
             i = i + 1;
-            sum_allocation = sum_allocation + index_alloc_value;
         };
         assert!(sum_allocation == 100, INVALID_PARAMETER);
 
@@ -327,6 +338,7 @@ module mira::mira {
                 timestamp: 0 //bug with timestamp::now_seconds()
             }
         );
+        // TODO: add MiraWithdraw so manager can invest in own fund
     }
 
     public entry fun update_pool(
@@ -414,19 +426,19 @@ module mira::mira {
         amount: u64
     )acquires MiraPool, MiraAccount, MiraStatus, MiraUserWithdraw
     {
-        assert!(amount >= GLOBAL_MIN_CONTRIBUTION * get_exchange_rate<CoinX>() / UNIT_DECIMAL, INSUFFICIENT_FUNDS);
+        assert!(amount >= (GLOBAL_MIN_CONTRIBUTION / UNIT_DECIMAL) * (get_exchange_rate<USDC, CoinX>() / UNIT_DECIMAL), INSUFFICIENT_FUNDS);
 
         let investor_addr = address_of(investor);
         let investor_acct = borrow_global_mut<MiraAccount>(investor_addr);
         investor_acct.total_funds_invested = investor_acct.total_funds_invested + amount;
 
         let pool_signer = get_pool_signer(pool_owner, pool_name);
-        update_stakes(investor_addr, address_of(&pool_signer), amount, 0, get_fund_value(pool_owner, pool_name));
+        update_stakes(investor_addr, address_of(&pool_signer), amount, 0, get_fund_value<USDC>(pool_owner, pool_name));
 
         let owner = borrow_global_mut<MiraAccount>(pool_owner);
         let mira_pool = borrow_global_mut<MiraPool>(address_of(&pool_signer));
 
-        assert!(amount >= mira_pool.minimum_contribution * get_exchange_rate<CoinX>() / UNIT_DECIMAL, INSUFFICIENT_FUNDS);
+        assert!(amount >= (mira_pool.minimum_contribution / UNIT_DECIMAL) * (get_exchange_rate<USDC, CoinX>() / UNIT_DECIMAL), INSUFFICIENT_FUNDS);
 
         mira_pool.investor_funds = mira_pool.investor_funds + amount;
         owner.funds_under_management = owner.funds_under_management + amount;
@@ -523,7 +535,7 @@ module mira::mira {
         register_coin<CoinX>(investor);
 
         let investor_addr = address_of(investor);
-        let fund_value = get_fund_value(pool_owner, pool_name);
+        let fund_value = get_fund_value<USDC>(pool_owner, pool_name);
         let pool_signer = get_pool_signer(pool_owner, pool_name);
         let mira_pool_temp = borrow_global_mut<MiraPool>(address_of(&pool_signer));
 
@@ -766,29 +778,36 @@ module mira::mira {
         // };
     }
 
-    entry fun get_fund_value(manager: address, pool_name: vector<u8>): u64 acquires MiraAccount, MiraPool {
+    entry fun get_fund_value<CoinX>(manager: address, pool_name: vector<u8>): u64 acquires MiraAccount, MiraPool {
         let pool_signer = address_of(&get_pool_signer(manager, pool_name));
         let gas_value = borrow_global<MiraPool>(pool_signer).gas_funds;
 
         let value = 0;
-        value = value + coin::balance<APT>(pool_signer) * get_exchange_rate<APT>();
-        value = value + coin::balance<USDC>(pool_signer) * get_exchange_rate<USDC>();
-        value = value + coin::balance<BTC>(pool_signer) * get_exchange_rate<BTC>();
-        value = value + coin::balance<ETH>(pool_signer) * get_exchange_rate<ETH>();
-        value = value + coin::balance<SOL>(pool_signer) * get_exchange_rate<SOL>();
+        value = value + coin::balance<APT>(pool_signer) * get_exchange_rate<CoinX, APT>() / UNIT_DECIMAL;
+        value = value + coin::balance<USDC>(pool_signer) * get_exchange_rate<CoinX, USDC>() / UNIT_DECIMAL;
+        value = value + coin::balance<BTC>(pool_signer) * get_exchange_rate<CoinX, BTC>() / UNIT_DECIMAL;
+        value = value + coin::balance<ETH>(pool_signer) * get_exchange_rate<CoinX, ETH>() / UNIT_DECIMAL;
+        value = value + coin::balance<SOL>(pool_signer) * get_exchange_rate<CoinX, SOL>() /UNIT_DECIMAL;
 
         return value - gas_value
     }
 
-    entry fun get_exchange_rate<coinX>(): u64 {
+    entry fun get_exchange_rate<coinX, coinY>(): u64 {
         // use Pyth / Switchboard / other oracle
         //assert!(vector::contains(&VALID_TOKENS, &coin), INVALID_PARAMETER);
-        if (symbol<coinX>() == string::utf8(b"APT")) { return 1 };
-        if (symbol<coinX>() == string::utf8(b"USDC")) { return 10 };
-        if (symbol<coinX>() == string::utf8(b"BTC")) { return 15000 };
-        if (symbol<coinX>() == string::utf8(b"ETH")) { return 100 };
-        if (symbol<coinX>() == string::utf8(b"SOL")) { return 2 };
-        return INVALID_PARAMETER
+        let dividend = 1;
+        let divisor = 1;
+        if (symbol<coinX>() == string::utf8(b"APT")) { dividend = 10 };
+        if (symbol<coinY>() == string::utf8(b"APT")) { divisor = 10 };
+        if (symbol<coinX>() == string::utf8(b"USDC")) { dividend = 1};
+        if (symbol<coinX>() == string::utf8(b"USDC")) { divisor = 1};
+        if (symbol<coinX>() == string::utf8(b"BTC")) { dividend = 15000 };
+        if (symbol<coinX>() == string::utf8(b"BTC")) { divisor = 15000 };
+        if (symbol<coinX>() == string::utf8(b"ETH")) { dividend = 1000 };
+        if (symbol<coinX>() == string::utf8(b"ETH")) { divisor = 1000 };
+        if (symbol<coinX>() == string::utf8(b"SOL")) { dividend = 20 };
+        if (symbol<coinX>() == string::utf8(b"SOL")) { divisor = 20 };
+        return dividend * UNIT_DECIMAL / divisor
     }
 
     // add or remove gas funds

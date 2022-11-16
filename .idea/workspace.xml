@@ -2,6 +2,8 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="92ef2b4e-736a-4c2e-bb0e-c467d0cbc269" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Move.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Move.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/BuildInfo.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/BuildInfo.yaml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/bytecode_modules/mira.mv" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/bytecode_modules/mira.mv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/bytecode_modules/test1.mv" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/bytecode_modules/test1.mv" afterDir="false" />
@@ -32,6 +34,9 @@
   </component>
   <component name="MoveProjectSettingsService_1">
     <option name="aptosPath" value="$USER_HOME$/.cargo/bin/aptos" />
+  </component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="ProjectErrors" />
   </component>
   <component name="ProjectId" id="2Dq9cgDz1XbZclMfn5vSptsj9T4" />
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
