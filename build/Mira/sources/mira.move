@@ -43,9 +43,12 @@ module mira::mira {
     const CREATE_MIRA_ACCOUNT: u64 = 13;
 
     // parameters
-    const MAX_MANAGEMENT_FEE: u64 = 1000000000; // 10.00000000%
-    const GLOBAL_MIN_CONTRIBUTION: u64 = 100000000; // $APT 1.00000000
-    const TOTAL_INVESTOR_STAKE: u64 = 10000000000; // 100.00000000%
+    const MAX_MANAGEMENT_FEE: u64 = 1000000000;
+    // 10.00000000%
+    const GLOBAL_MIN_CONTRIBUTION: u64 = 100000000;
+    // $APT 1.00000000
+    const TOTAL_INVESTOR_STAKE: u64 = 10000000000;
+    // 100.00000000%
     const MAX_DAYS: u64 = 730;
     const SEC_OF_DAY: u64 = 86400;
     const MAX_REBALANCING_TIMES: u64 = 4;
@@ -55,7 +58,8 @@ module mira::mira {
 
     //defaults
     const DEFAULT_TRADING_TOKEN: vector<u8> = b"APT";
-    const DEFAULT_GAS_ALLOCATION: u64 = 5000000; // $APT 0.0500000;
+    const DEFAULT_GAS_ALLOCATION: u64 = 5000000;
+    // $APT 0.0500000;
     const UNIT_DECIMAL: u64 = 100000000;
     const VALID_TOKENS: vector<vector<u8>> = vector<vector<u8>>[b"APT", b"USDC", b"BTC", b"ETH", b"SOL"];
 
@@ -230,29 +234,38 @@ module mira::mira {
         management_fee: u64,
         minimum_contribution: u64,
         rebalancing_period: u64, // in days (0 - 730)
-        rebalance_on_investment: u8
+        rebalance_on_investment: u8,
+        gas: option::Option<u64>
     ) acquires MiraAccount, MiraStatus
     {
-
         let manager_addr = address_of(manager);
-        assert!(exists<MiraAccount>(manager_addr), CREATE_MIRA_ACCOUNT); // in the future, auto-create account with random username
+        assert!(exists<MiraAccount>(manager_addr),
+            CREATE_MIRA_ACCOUNT
+        ); // in the future, auto-create account with random username
 
         let mira_account = borrow_global_mut<MiraAccount>(manager_addr);
-        if (minimum_contribution < GLOBAL_MIN_CONTRIBUTION){ minimum_contribution =
-            (GLOBAL_MIN_CONTRIBUTION/ UNIT_DECIMAL) * (get_exchange_rate<USDC, CoinX>() / UNIT_DECIMAL); };
+        if (minimum_contribution < GLOBAL_MIN_CONTRIBUTION) { minimum_contribution = GLOBAL_MIN_CONTRIBUTION };
+        let gas_allocation = DEFAULT_GAS_ALLOCATION;
+        if (!option::is_none(&gas)) { gas_allocation = *option::borrow(&gas); };
 
         // all of these values will be modifiable in next update
         let minimum_withdrawal_period = 0;
         let privacy_allocation = PUBLIC_ALLOCATION;
-        let gas_allocation = DEFAULT_GAS_ALLOCATION;
         let referral_reward = 0;
         let whitelist = table::new<u64, address>();
 
         // clean inputs for pool name, investment amount, & management fee
         assert!(!string::is_empty(&string::utf8(pool_name)), INVALID_PARAMETER);
         assert!(!table_with_length::contains(&mut mira_account.created_pools, string::utf8(pool_name)), DUPLICATE_NAME);
-        assert!(deposit_amount >= (GLOBAL_MIN_CONTRIBUTION / UNIT_DECIMAL) * (get_exchange_rate<USDC, CoinX>() / UNIT_DECIMAL), INSUFFICIENT_FUNDS);
-        assert!(deposit_amount >= (minimum_contribution / UNIT_DECIMAL) * (get_exchange_rate<USDC, CoinX>() / UNIT_DECIMAL), INSUFFICIENT_FUNDS);
+        assert!(
+            deposit_amount >= (GLOBAL_MIN_CONTRIBUTION / UNIT_DECIMAL) * (get_exchange_rate<USDC, CoinX>(
+            ) / UNIT_DECIMAL),
+            INSUFFICIENT_FUNDS
+        );
+        assert!(
+            deposit_amount >= (minimum_contribution / UNIT_DECIMAL) * (get_exchange_rate<USDC, CoinX>() / UNIT_DECIMAL),
+            INSUFFICIENT_FUNDS
+        );
         assert!(vector::length(&token_names) == vector::length(&token_allocations), INVALID_PARAMETER);
         assert!(management_fee <= MAX_MANAGEMENT_FEE, INVALID_PARAMETER);
 
@@ -273,21 +286,7 @@ module mira::mira {
             TOTAL_INVESTOR_STAKE
         ); // keep track of investor stake as a percentage
 
-        let sum_allocation: u64 = 0;
-        let i = 0;
-        let token_check = vector::empty<vector<u8>>();
-        while (i < vector::length(&token_names)) {
-            let name = vector::borrow(&token_names, i);
-            let alloc: u64 = *vector::borrow(&token_allocations, i);
-
-            assert!(vector::contains(&VALID_TOKENS, name) && !vector::contains(&token_check, name), INVALID_PARAMETER);
-            assert!(alloc < 100, INVALID_PARAMETER);
-
-            vector::push_back(&mut token_check, *name);
-            sum_allocation = sum_allocation + alloc;
-            i = i + 1;
-        };
-        assert!(sum_allocation == 100, INVALID_PARAMETER);
+        check_tokens(token_names, token_allocations);
 
         // should set based on number of rebalances, and in UI: we recommend setting aside $0.50 for gas - this should suffice for the next 2 years of rebalances.
         let gas_funds = gas_allocation;
@@ -348,22 +347,26 @@ module mira::mira {
         token_allocations: vector<u64>,
         management_fee: u64,
         rebalancing_period: u64,
-        rebalance_on_investment: u8
-        // minimum_contribution: u64, add commented fields in update
+        rebalance_on_investment: u8,
+        minimum_contribution: u64,
         // referral_reward: u64,
-        // gas_percentage: u64,
         // whitelist: Table<u64, address>
     )acquires MiraAccount, MiraStatus, MiraPool
     {
         let manager_addr = address_of(manager);
+        assert!(exists<MiraAccount>(manager_addr),
+            CREATE_MIRA_ACCOUNT
+        );
         let mira_account = borrow_global_mut<MiraAccount>(manager_addr);
+
+        if (minimum_contribution < GLOBAL_MIN_CONTRIBUTION) { minimum_contribution = GLOBAL_MIN_CONTRIBUTION };
 
         // clean inputs for pool, tokens, management fee
         let pool_name_str = string::utf8(pool_name);
         assert!(!string::is_empty(&pool_name_str), INVALID_PARAMETER);
-        assert!(management_fee < MAX_MANAGEMENT_FEE, INVALID_PARAMETER);
         assert!(table_with_length::contains(&mira_account.created_pools, pool_name_str), INVALID_PARAMETER);
         assert!(vector::length(&token_names) == vector::length(&token_allocations), INVALID_PARAMETER);
+        assert!(management_fee < MAX_MANAGEMENT_FEE, INVALID_PARAMETER);
 
         // in next update, clean inputs for min contribution, referral reward, and gas percentage
 
@@ -375,25 +378,16 @@ module mira::mira {
             assert!(management_fee < mira_pool.management_fee, CANNOT_UPDATE_MANAGEMENT_FEE);
         };
 
-        let sum_allocation: u64 = 0;
-        let i = 0;
-        while (i < vector::length(&token_names)) {
-            let index_alloc_value: u64 = *vector::borrow(&token_allocations, i);
-            assert!(vector::contains(&VALID_TOKENS, vector::borrow(&token_names, i)), INVALID_PARAMETER);
-            //assert!(!string::is_empty(vector::borrow(&token_names, i)), INVALID_PARAMETER);
-            assert!(index_alloc_value < 100, INVALID_PARAMETER);
-            i = i + 1;
-            sum_allocation = sum_allocation + index_alloc_value;
-        };
-        assert!(sum_allocation == 100, INVALID_PARAMETER);
+        check_tokens(token_names, token_allocations);
 
         mira_pool.rebalancing_period = rebalancing_period;
         mira_pool.token_allocations = token_allocations;
         mira_pool.token_names = token_names;
         mira_pool.management_fee = management_fee;
         mira_pool.rebalance_on_investment = rebalance_on_investment;
+        mira_pool.minimum_contribution = minimum_contribution;
 
-        rebalance(manager, address_of(manager), pool_name);
+        // rebalance(manager, address_of(manager), pool_name); //TODO: decide if we want auto-rebalance on investment
 
         let miraStatus = borrow_global_mut<MiraStatus>(MODULE_ADMIN);
         event::emit_event<MiraPoolUpdateEvent>(
@@ -426,9 +420,11 @@ module mira::mira {
         amount: u64
     )acquires MiraPool, MiraAccount, MiraStatus, MiraUserWithdraw
     {
-        assert!(amount >= (GLOBAL_MIN_CONTRIBUTION / UNIT_DECIMAL) * (get_exchange_rate<USDC, CoinX>() / UNIT_DECIMAL), INSUFFICIENT_FUNDS);
-
         let investor_addr = address_of(investor);
+        assert!(exists<MiraAccount>(investor_addr) && exists<MiraAccount>(pool_owner),
+            CREATE_MIRA_ACCOUNT
+        );
+        assert!(amount > 0, INVALID_PARAMETER);
         let investor_acct = borrow_global_mut<MiraAccount>(investor_addr);
         investor_acct.total_funds_invested = investor_acct.total_funds_invested + amount;
 
@@ -438,7 +434,11 @@ module mira::mira {
         let owner = borrow_global_mut<MiraAccount>(pool_owner);
         let mira_pool = borrow_global_mut<MiraPool>(address_of(&pool_signer));
 
-        assert!(amount >= (mira_pool.minimum_contribution / UNIT_DECIMAL) * (get_exchange_rate<USDC, CoinX>() / UNIT_DECIMAL), INSUFFICIENT_FUNDS);
+        assert!(
+            amount >= (mira_pool.minimum_contribution / UNIT_DECIMAL) * (get_exchange_rate<USDC, CoinX>(
+            ) / UNIT_DECIMAL),
+            INSUFFICIENT_FUNDS
+        );
 
         mira_pool.investor_funds = mira_pool.investor_funds + amount;
         owner.funds_under_management = owner.funds_under_management + amount;
@@ -504,7 +504,7 @@ module mira::mira {
                     *val = *val + (TOTAL_INVESTOR_STAKE / stake_divisor * 10000) - fee;
                 };
                 // manager's stake
-                if (option::borrow(&key) == &mira_pool.manager_addr){
+                if (option::borrow(&key) == &mira_pool.manager_addr) {
                     *val = *val + fee;
                 }
             } else {
@@ -530,6 +530,9 @@ module mira::mira {
     )acquires MiraPool, MiraAccount, MiraStatus, MiraUserWithdraw, LockWithdrawals
     {
         assert!(borrow_global_mut<LockWithdrawals>(MODULE_ADMIN).lock == 0, WITHDRAWALS_LOCKED_FOR_USER_SAFETY);
+        assert!(exists<MiraAccount>(address_of(investor)) && exists<MiraAccount>(pool_owner),
+            CREATE_MIRA_ACCOUNT
+        );
 
         // so that investor can withdraw with any token
         register_coin<CoinX>(investor);
@@ -588,12 +591,13 @@ module mira::mira {
     }
 
     public entry fun rebalance(signer: &signer, manager: address, pool_name: vector<u8>)acquires MiraAccount, MiraPool {
+        assert!(exists<MiraAccount>(address_of(signer)) && exists<MiraAccount>(manager), CREATE_MIRA_ACCOUNT);
+
         let pool_signer = get_pool_signer(manager, pool_name);
         let pool_addr = address_of(&pool_signer);
         let mira_pool = borrow_global_mut<MiraPool>(pool_addr);
 
         assert!(address_of(signer) == manager || mira_pool.rebalance_on_investment == 1, NO_REBALANCE_PERMISSION);
-        // ensure if user is calling function that they are allowed to
 
         let i = 0;
         let j = 0;
@@ -787,7 +791,7 @@ module mira::mira {
         value = value + coin::balance<USDC>(pool_signer) * get_exchange_rate<CoinX, USDC>() / UNIT_DECIMAL;
         value = value + coin::balance<BTC>(pool_signer) * get_exchange_rate<CoinX, BTC>() / UNIT_DECIMAL;
         value = value + coin::balance<ETH>(pool_signer) * get_exchange_rate<CoinX, ETH>() / UNIT_DECIMAL;
-        value = value + coin::balance<SOL>(pool_signer) * get_exchange_rate<CoinX, SOL>() /UNIT_DECIMAL;
+        value = value + coin::balance<SOL>(pool_signer) * get_exchange_rate<CoinX, SOL>() / UNIT_DECIMAL;
 
         return value - gas_value
     }
@@ -799,8 +803,8 @@ module mira::mira {
         let divisor = 1;
         if (symbol<coinX>() == string::utf8(b"APT")) { dividend = 10 };
         if (symbol<coinY>() == string::utf8(b"APT")) { divisor = 10 };
-        if (symbol<coinX>() == string::utf8(b"USDC")) { dividend = 1};
-        if (symbol<coinX>() == string::utf8(b"USDC")) { divisor = 1};
+        if (symbol<coinX>() == string::utf8(b"USDC")) { dividend = 1 };
+        if (symbol<coinX>() == string::utf8(b"USDC")) { divisor = 1 };
         if (symbol<coinX>() == string::utf8(b"BTC")) { dividend = 15000 };
         if (symbol<coinX>() == string::utf8(b"BTC")) { divisor = 15000 };
         if (symbol<coinX>() == string::utf8(b"ETH")) { dividend = 1000 };
@@ -808,6 +812,24 @@ module mira::mira {
         if (symbol<coinX>() == string::utf8(b"SOL")) { dividend = 20 };
         if (symbol<coinX>() == string::utf8(b"SOL")) { divisor = 20 };
         return dividend * UNIT_DECIMAL / divisor
+    }
+
+    entry fun check_tokens(token_names: vector<vector<u8>>, token_allocations: vector<u64>) {
+        let sum_allocation: u64 = 0;
+        let i = 0;
+        let token_check = vector::empty<vector<u8>>();
+        while (i < vector::length(&token_names)) {
+            let name = vector::borrow(&token_names, i);
+            let alloc: u64 = *vector::borrow(&token_allocations, i);
+
+            assert!(vector::contains(&VALID_TOKENS, name) && !vector::contains(&token_check, name), INVALID_PARAMETER);
+            assert!(alloc < 100, INVALID_PARAMETER);
+
+            vector::push_back(&mut token_check, *name);
+            sum_allocation = sum_allocation + alloc;
+            i = i + 1;
+        };
+        assert!(sum_allocation == 100, INVALID_PARAMETER);
     }
 
     // add or remove gas funds

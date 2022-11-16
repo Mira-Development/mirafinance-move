@@ -2,8 +2,9 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="92ef2b4e-736a-4c2e-bb0e-c467d0cbc269" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/codeStyles/Project.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/codeStyles/codeStyleConfig.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Move.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Move.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/BuildInfo.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/BuildInfo.yaml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/bytecode_modules/mira.mv" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/bytecode_modules/mira.mv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/bytecode_modules/test1.mv" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/bytecode_modules/test1.mv" afterDir="false" />
@@ -36,7 +37,7 @@
     <option name="aptosPath" value="$USER_HOME$/.cargo/bin/aptos" />
   </component>
   <component name="ProblemsViewState">
-    <option name="selectedTabId" value="ProjectErrors" />
+    <option name="selectedTabId" value="CurrentFile" />
   </component>
   <component name="ProjectId" id="2Dq9cgDz1XbZclMfn5vSptsj9T4" />
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
@@ -44,14 +45,15 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/nigel/Desktop/mirafinance-move/sources&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;language.move&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "last_opened_file_path": "/Users/nigel/Desktop/mirafinance-move/sources",
+    "settings.editor.selected.configurable": "preferences.sourceCode.Python"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/sources" />

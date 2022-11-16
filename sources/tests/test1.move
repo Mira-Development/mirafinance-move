@@ -11,6 +11,7 @@ module mira::test1 {
     // use std::string;
     use std::vector;
     use mira::mira::{print_investor_stakes, print_account_info, send_funds_to_user};
+    use std::option;
 
     const UNIT_DECIMAL: u64 = 100000000;
 
@@ -136,7 +137,8 @@ module mira::test1 {
             management_fee, // 2.125000000%
             0,
             10, // in days (0 - 730)
-            0
+            0,
+            option::none()
         );
         // print_pool_info(manager, b"simple_portfolio");
         // print_real_pool_distribution(address_of(manager), string::utf8(b"simple_portfolio"));
@@ -156,7 +158,7 @@ module mira::test1 {
         vector::push_back(&mut update_allocation, 30);
 
         mira::update_pool(manager, b"simple_portfolio", update_tokens, update_allocation,
-            management_fee, 5, 1);
+            management_fee, 5, 1, 0);
 
         // print_pool_info(manager, b"simple_portfolio");
         // print_investor_stakes(address_of(manager), b"simple_portfolio")
@@ -181,7 +183,8 @@ module mira::test1 {
             management_fee, // 2.125000000%
             0,
             10, // in days (0 - 730)
-            0
+            0,
+            option::none()
         );
 
         // print_pool_info(manager, b"btc_portfolio");
