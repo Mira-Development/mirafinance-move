@@ -5,10 +5,10 @@ version = '0.0.8'
 
 [dependencies.AptosFramework]
 #local = "../aptos-core/aptos-move/framework/aptos-framework"
-#local = "../../.move/https___github_com_aptos-labs_aptos-core_git_main/aptos-move/framework/aptos-framework"
-git = "https://github.com/aptos-labs/aptos-core.git"
-subdir = "aptos-move/framework/aptos-framework"
-rev = 'main'
+local = "../../.move/https___github_com_aptos-labs_aptos-core_git_main/aptos-move/framework/aptos-framework"
+#git = "https://github.com/aptos-labs/aptos-core.git"
+#subdir = "aptos-move/framework/aptos-framework"
+#rev = 'main'
 
 #[dependencies.Liquidswap]
 ##local = "../liquidswap"

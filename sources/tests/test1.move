@@ -64,13 +64,6 @@ module mira::test1 {
         //     burn_cap
         // });
 
-        // register coins
-        managed_coin::register<APT>(bank);
-        managed_coin::register<USDC>(bank);
-        managed_coin::register<BTC>(bank);
-        managed_coin::register<ETH>(bank);
-        managed_coin::register<SOL>(bank);
-
         // mint coins, total supply of 75,000 APT w/ rough exchange rates
         managed_coin::mint<APT>(bank, bank_addr, 15000 * UNIT_DECIMAL);
         managed_coin::mint<USDC>(bank, bank_addr, 150000 * UNIT_DECIMAL);
@@ -113,7 +106,11 @@ module mira::test1 {
         mira::unlock_withdrawals(admin);
         simple_withdraw(carl, alice_acct, 100 * UNIT_DECIMAL);
         simple_withdraw(alice, alice_acct, 100 * UNIT_DECIMAL);
+        mira::yearly_management(alice, alice_acct, b"simple_portfolio");
+        mira::update_management_fee(admin, 5 * UNIT_DECIMAL);
+        mira::yearly_management(admin, alice_acct, b"simple_portfolio");
         print_investor_stakes(alice_acct, b"simple_portfolio");
+
         // simple_withdraw(daisy, alice_acct, 100 * UNIT_DECIMAL); TODO: fix last stakeholder can't withdraw everything
 
         send_funds_to_user<APT>(alice, daisy_acct, 10 * UNIT_DECIMAL);
@@ -158,7 +155,7 @@ module mira::test1 {
         vector::push_back(&mut update_allocation, 30);
 
         mira::update_pool(manager, b"simple_portfolio", update_tokens, update_allocation,
-            management_fee, 5, 1, 0);
+            management_fee, 5, 1, 0, 0);
 
         // print_pool_info(manager, b"simple_portfolio");
         // print_investor_stakes(address_of(manager), b"simple_portfolio")
