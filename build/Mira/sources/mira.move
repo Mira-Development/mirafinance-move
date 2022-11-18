@@ -7,7 +7,7 @@ module mira::mira {
     // use aptos_framework::timestamp;
     use std::string::String;
     use aptos_std::simple_map::{Self, SimpleMap};
-    use aptos_framework::account::SignerCapability;
+    use aptos_framework::account::{SignerCapability, create_signer_with_capability};
     use std::signer::{Self, address_of};
     use aptos_std::table_with_length::{Self, TableWithLength};
     // use liquidswap::curves::Uncorrelated;
@@ -23,6 +23,7 @@ module mira::mira {
     use aptos_framework::coin::balance;
     use aptos_std::debug;
     use aptos_framework::coin::{symbol, transfer};
+    use std::option::{Option, is_some, some, is_none, none};
     // use mira::math;
 
     const MODULE_ADMIN: address = @mira;
@@ -366,12 +367,12 @@ module mira::mira {
     public entry fun update_pool(
         manager: &signer,
         pool_name: vector<u8>,
-        token_names: vector<vector<u8>>,
-        token_allocations: vector<u64>,
-        management_fee: u64,
-        rebalancing_period: u64,
-        rebalance_on_investment: u8,
-        minimum_contribution: u64,
+        token_names: Option<vector<vector<u8>>>,
+        token_allocations: Option<vector<u64>>,
+        management_fee: Option<u64>,
+        rebalancing_period: Option<u64>,
+        rebalance_on_investment: Option<u8>,
+        minimum_contribution: Option<u64>,
         rebalance_now: u8,
         // referral_reward: u64,
         // whitelist: Table<u64, address>
@@ -383,33 +384,37 @@ module mira::mira {
         );
         let mira_account = borrow_global_mut<MiraAccount>(manager_addr);
 
-        if (minimum_contribution < GLOBAL_MIN_CONTRIBUTION) { minimum_contribution = GLOBAL_MIN_CONTRIBUTION };
+        if (is_none(&minimum_contribution) || *option::borrow(&minimum_contribution) < GLOBAL_MIN_CONTRIBUTION)
+            { minimum_contribution = some(GLOBAL_MIN_CONTRIBUTION) };
 
         // clean inputs for pool, tokens, management fee
         let pool_name_str = string::utf8(pool_name);
         assert!(!string::is_empty(&pool_name_str), INVALID_PARAMETER);
         assert!(table_with_length::contains(&mira_account.created_pools, pool_name_str), INVALID_PARAMETER);
-        assert!(vector::length(&token_names) == vector::length(&token_allocations), INVALID_PARAMETER);
-        assert!(management_fee < MAX_MANAGEMENT_FEE, INVALID_PARAMETER);
+
+        if(is_some(&token_names)){
+            assert!(is_some(&token_allocations), INVALID_PARAMETER);
+            check_tokens(*option::borrow(&token_names), *option::borrow(&token_allocations));
+            assert!(vector::length(&*option::borrow(&token_names)) == vector::length(&*option::borrow(&token_allocations)), INVALID_PARAMETER);
+        };
+
+        if(is_some(&management_fee)) {assert!(*option::borrow(&management_fee) < MAX_MANAGEMENT_FEE, INVALID_PARAMETER);};
 
         // in next update, clean inputs for min contribution, referral reward, and gas percentage
 
         let pool_signer = get_pool_signer(address_of(manager), pool_name);
         let mira_pool = borrow_global_mut<MiraPool>(address_of(&pool_signer));
 
-        if (!(manager_addr == MODULE_ADMIN)) {
-            // only admin can increase management fee
-            assert!(management_fee < mira_pool.management_fee, CANNOT_UPDATE_MANAGEMENT_FEE);
+        if (!(manager_addr == MODULE_ADMIN) && is_some(&management_fee)) { // only admin can increase management fee
+            assert!(*option::borrow(&management_fee) < mira_pool.management_fee, CANNOT_UPDATE_MANAGEMENT_FEE);
         };
 
-        check_tokens(token_names, token_allocations);
-
-        mira_pool.rebalancing_period = rebalancing_period;
-        mira_pool.token_allocations = token_allocations;
-        mira_pool.token_names = token_names;
-        mira_pool.management_fee = management_fee;
-        mira_pool.rebalance_on_investment = rebalance_on_investment;
-        mira_pool.minimum_contribution = minimum_contribution;
+        if(is_some(&token_names)){mira_pool.token_names = *option::borrow(&token_names);};
+        if(is_some(&token_allocations)){mira_pool.token_allocations = *option::borrow(&token_allocations);};
+        if(is_some(&management_fee)){mira_pool.management_fee = *option::borrow(&management_fee);};
+        if(is_some(&rebalancing_period)){mira_pool.rebalancing_period = *option::borrow(&rebalancing_period);};
+        if(is_some(&rebalance_on_investment)){mira_pool.rebalance_on_investment = *option::borrow(&rebalance_on_investment);};
+        if(is_some(&minimum_contribution)){mira_pool.minimum_contribution = *option::borrow(&minimum_contribution);};
 
         if(rebalance_now == 1) {rebalance(manager, address_of(manager), pool_name);};
 
@@ -587,7 +592,7 @@ module mira::mira {
         };
         // if (admin == 1){
         //     withdraw<APT>()
-        // }// TODO: update mira_pool. ...
+        // }// TODO: withdraw direct and update mira_pool. ...
     }
 
     public entry fun withdraw<CoinX>(
@@ -908,43 +913,35 @@ module mira::mira {
         }
     }
 
-    public entry fun transfer_manager(_current_owner: &signer,
-                                      _new_owner: address, _pool_name: vector<u8>) {}
+    public entry fun transfer_manager(signer: &signer, current_manager: address,
+                                      new_manager: address, pool_name: vector<u8>) acquires MiraAccount, MiraPool {
+        assert!(address_of(signer) == MODULE_ADMIN || address_of(signer) == current_manager, INVALID_PARAMETER);
+
+        let current_acct = borrow_global_mut<MiraAccount>(current_manager);
+        let pool_signer_capability = table_with_length::remove<String, SignerCapability>(
+            &mut current_acct.created_pools,
+            string::utf8(pool_name)
+        );
+        let mira_pool = borrow_global_mut<MiraPool>(address_of(&create_signer_with_capability(&pool_signer_capability)));
+        mira_pool.manager_addr = new_manager;
+        current_acct.funds_under_management = current_acct.funds_under_management - mira_pool.investor_funds;
+        current_acct.funds_on_gas = current_acct.funds_on_gas - mira_pool.gas_funds;
+
+        let new_acct = borrow_global_mut<MiraAccount>(new_manager);
+        table_with_length::add<String, SignerCapability>(&mut new_acct.created_pools, string::utf8(pool_name), pool_signer_capability);
+        new_acct.funds_under_management = new_acct.funds_under_management + mira_pool.investor_funds;
+        new_acct.funds_on_gas = new_acct.funds_on_gas + mira_pool.gas_funds;
+    }
 
     //Move Pool from owner to Admin
     public entry fun repossess(
         admin: &signer,
         user: address, pool_name: vector<u8>
-    )acquires MiraPool, MiraAccount
+    )acquires MiraPool, MiraAccount, MiraStatus
     {
-        let admin_addr = address_of(admin);
-        assert!(admin_addr == MODULE_ADMIN, INVALID_ADMIN_ADDRESS);
-
-        let pool_signer = get_pool_signer(user, pool_name);
-        let owner = borrow_global_mut<MiraAccount>(user);
-
-        // repossessing the pool this way gives Mira has direct ownership of the pool
-        // would be better to keep pool under resource account, and move pool signer capability from
-        // manager's created_pools to mira's created_pools
-        let pool = move_from<MiraPool>(address_of(&pool_signer));
-        move_to<MiraPool>(admin, pool);
-        let mira_pool = borrow_global_mut<MiraPool>(address_of(admin));
-
-        // update pool settings
-        mira_pool.management_fee = 10;
-        mira_pool.manager_addr = admin_addr;
-
-        // change lists
-        table_with_length::remove(&mut owner.created_pools, string::utf8(pool_name));
-
-        // update previous owner info
-        owner.funds_under_management = owner.funds_under_management - mira_pool.investor_funds;
-        owner.funds_on_gas = owner.funds_on_gas - mira_pool.gas_funds;
-
-        // update mira info
-        let mira = borrow_global_mut<MiraAccount>(admin_addr);
-        mira.funds_under_management = mira.funds_under_management + mira_pool.investor_funds;
-        mira.funds_on_gas = mira.funds_on_gas + mira_pool.gas_funds;
+        transfer_manager(admin, user, address_of(admin), pool_name);
+        update_pool(admin, pool_name, none(), none(), some(1 * UNIT_DECIMAL), none(),
+            none(), some(0), 0);
     }
 
     public entry fun lock_withdrawals(admin: &signer)acquires LockWithdrawals {

@@ -10,8 +10,9 @@ module mira::test1 {
     use mira::coins;
     // use std::string;
     use std::vector;
-    use mira::mira::{print_investor_stakes, print_account_info, send_funds_to_user};
+    use mira::mira::{print_investor_stakes, print_account_info, send_funds_to_user, transfer_manager, repossess};
     use std::option;
+    use std::option::some;
 
     const UNIT_DECIMAL: u64 = 100000000;
 
@@ -96,24 +97,30 @@ module mira::test1 {
         simple_invest(alice, alice_acct, 5 * UNIT_DECIMAL); // alice invests 5 more APT in her own pool worth 42 APT
         print_investor_stakes(alice_acct, b"simple_portfolio");
 
-
         simple_withdraw(bob, alice_acct, 1 * UNIT_DECIMAL); // bob has 1.9575 to withdraw
         simple_withdraw(bob, alice_acct, 9 * UNIT_DECIMAL/10);
         simple_withdraw(bob, alice_acct, 5 * UNIT_DECIMAL/100);
         simple_withdraw(bob, alice_acct, 7 * UNIT_DECIMAL/1000);
         simple_withdraw(bob, alice_acct, 5 * UNIT_DECIMAL/10000); // rounding error causes some issues here
-        mira::lock_withdrawals(admin);
-        mira::unlock_withdrawals(admin);
+
+        lock_and_unlock(admin);
+
         simple_withdraw(carl, alice_acct, 100 * UNIT_DECIMAL);
         simple_withdraw(alice, alice_acct, 100 * UNIT_DECIMAL);
-        mira::yearly_management(alice, alice_acct, b"simple_portfolio");
-        mira::update_management_fee(admin, 5 * UNIT_DECIMAL);
-        mira::yearly_management(admin, alice_acct, b"simple_portfolio");
+
+        yearly_management(alice, alice_acct, b"simple_portfolio");
+        update_management_fee(admin, 5 * UNIT_DECIMAL);
+        yearly_management(admin, alice_acct, b"simple_portfolio");
+
         print_investor_stakes(alice_acct, b"simple_portfolio");
 
         // simple_withdraw(daisy, alice_acct, 100 * UNIT_DECIMAL); TODO: fix last stakeholder can't withdraw everything
 
         send_funds_to_user<APT>(alice, daisy_acct, 10 * UNIT_DECIMAL);
+
+        transfer_manager(alice, address_of(alice), daisy_acct, b"simple_portfolio");
+        repossess(admin, address_of(daisy), b"simple_portfolio");
+
         print_account_info(daisy);
     }
 
@@ -154,8 +161,8 @@ module mira::test1 {
         vector::push_back(&mut update_allocation, 25);
         vector::push_back(&mut update_allocation, 30);
 
-        mira::update_pool(manager, b"simple_portfolio", update_tokens, update_allocation,
-            management_fee, 5, 1, 0, 0);
+        mira::update_pool(manager, b"simple_portfolio", some(update_tokens), some(update_allocation),
+            some(management_fee), some(5), some(1), option::none(), 0);
 
         // print_pool_info(manager, b"simple_portfolio");
         // print_investor_stakes(address_of(manager), b"simple_portfolio")
@@ -214,4 +221,18 @@ module mira::test1 {
     public entry fun btc_withdraw(investor: &signer, manager: address, amount: u64){
         mira::withdraw<BTC>(investor, b"simple_portfolio", manager, amount);
     }
+
+    public entry fun lock_and_unlock(admin: &signer){
+        mira::lock_withdrawals(admin);
+        mira::unlock_withdrawals(admin);
+    }
+
+    public entry fun yearly_management(signer: &signer, manager: address, pool_name: vector<u8>){
+        mira::yearly_management(signer, manager, pool_name);
+    }
+
+    public entry fun update_management_fee(admin: &signer, fee: u64){
+        mira::update_management_fee(admin, fee);
+    }
+
 }
