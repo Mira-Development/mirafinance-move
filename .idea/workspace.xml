@@ -2,12 +2,32 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="92ef2b4e-736a-4c2e-bb0e-c467d0cbc269" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/sources/tests/test2.move" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Move.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Move.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/BuildInfo.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/BuildInfo.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/Mira/bytecode_modules/dependencies/AptosFramework/aptos_governance.mv" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/bytecode_modules/dependencies/AptosFramework/aptos_governance.mv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/Mira/bytecode_modules/dependencies/AptosFramework/stake.mv" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/bytecode_modules/dependencies/AptosFramework/stake.mv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/Mira/bytecode_modules/dependencies/AptosFramework/staking_contract.mv" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/bytecode_modules/dependencies/AptosFramework/staking_contract.mv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/Mira/bytecode_modules/dependencies/AptosFramework/staking_proxy.mv" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/bytecode_modules/dependencies/AptosFramework/staking_proxy.mv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/Mira/bytecode_modules/dependencies/AptosFramework/vesting.mv" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/bytecode_modules/dependencies/AptosFramework/vesting.mv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/Mira/bytecode_modules/dependencies/AptosStdlib/bls12381.mv" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/bytecode_modules/dependencies/AptosStdlib/bls12381.mv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/bytecode_modules/mira.mv" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/bytecode_modules/mira.mv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/bytecode_modules/test1.mv" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/bytecode_modules/test1.mv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/Mira/source_maps/dependencies/AptosFramework/aptos_governance.mvsm" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/source_maps/dependencies/AptosFramework/aptos_governance.mvsm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/Mira/source_maps/dependencies/AptosFramework/stake.mvsm" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/source_maps/dependencies/AptosFramework/stake.mvsm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/Mira/source_maps/dependencies/AptosFramework/staking_contract.mvsm" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/source_maps/dependencies/AptosFramework/staking_contract.mvsm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/Mira/source_maps/dependencies/AptosFramework/staking_proxy.mvsm" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/source_maps/dependencies/AptosFramework/staking_proxy.mvsm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/Mira/source_maps/dependencies/AptosFramework/vesting.mvsm" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/source_maps/dependencies/AptosFramework/vesting.mvsm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/Mira/source_maps/dependencies/AptosStdlib/bls12381.mvsm" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/source_maps/dependencies/AptosStdlib/bls12381.mvsm" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/source_maps/mira.mvsm" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/source_maps/mira.mvsm" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/source_maps/test1.mvsm" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/source_maps/test1.mvsm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/Mira/sources/dependencies/AptosFramework/aptos_governance.move" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/sources/dependencies/AptosFramework/aptos_governance.move" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/Mira/sources/dependencies/AptosFramework/stake.move" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/sources/dependencies/AptosFramework/stake.move" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/Mira/sources/dependencies/AptosFramework/staking_contract.move" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/sources/dependencies/AptosFramework/staking_contract.move" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/Mira/sources/dependencies/AptosFramework/staking_proxy.move" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/sources/dependencies/AptosFramework/staking_proxy.move" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/Mira/sources/dependencies/AptosFramework/vesting.move" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/sources/dependencies/AptosFramework/vesting.move" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/Mira/sources/dependencies/AptosStdlib/bls12381.move" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/sources/dependencies/AptosStdlib/bls12381.move" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/sources/mira.move" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/sources/mira.move" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/sources/test1.move" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/sources/test1.move" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/sources/Mira.move" beforeDir="false" afterPath="$PROJECT_DIR$/sources/Mira.move" afterDir="false" />

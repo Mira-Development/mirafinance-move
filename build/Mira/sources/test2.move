@@ -1,5 +1,5 @@
 #[test_only]
-module mira::test1 {
+module mira::test2 {
     use mira::mira;
     use std::signer::address_of;
     use aptos_framework::account;
@@ -10,10 +10,9 @@ module mira::test1 {
     use mira::coins;
     // use std::string;
     use std::vector;
-    use mira::mira::{print_investor_stakes, send_funds_to_user, transfer_manager, repossess, print_account_info};
+    use mira::mira::{print_investor_stakes, print_account_info, send_funds_to_user, transfer_manager, repossess};
     use std::option;
     use std::option::some;
-    use aptos_framework::genesis;
 
     const UNIT_DECIMAL: u64 = 100000000;
 
@@ -32,9 +31,6 @@ module mira::test1 {
         carl: &signer,
         daisy: &signer
     ) {
-
-        genesis::setup();
-
         let bank_addr = address_of(bank);
         // account::create_account_for_test(bank_addr);
         coins::init_local_coins(bank);
@@ -86,7 +82,7 @@ module mira::test1 {
         create_simple_pool(alice, 1005 * UNIT_DECIMAL/100, 4 * UNIT_DECIMAL); // alice deposits 10.05 APT in simple portfolio, fee @ 4%
         create_btc_pool(alice, 1 * UNIT_DECIMAL, 10 * UNIT_DECIMAL); // alice deposits 1 BTC in btc portfolio, fee @ 1%
         btc_invest(daisy, alice_acct, 2 * UNIT_DECIMAL); // daisy invests 2 BTC in btc portfolio
-        //btc_withdraw(daisy, alice_acct, 2 * UNIT_DECIMAL); // daisy withdraws max amount TODO: won't work until swap function implemented
+        //btc_withdraw(daisy, alice_acct, 2 * UNIT_DECIMAL); // daisy withdraws max amount,
         update_simple_pool(alice, 2125 * UNIT_DECIMAL/1000); // alice updates fee to 2.125%, allocation, rebalancing, and rebalance_on_investment
 
         change_gas_funds(alice, 5 * UNIT_DECIMAL / 100, 1); // remove 0.05 APT from gas funds
@@ -100,35 +96,44 @@ module mira::test1 {
         simple_invest(carl, alice_acct, 10 * UNIT_DECIMAL); // carl invests 10 APT in alice's pool worth 12 APT
         simple_invest(daisy, alice_acct, 20 * UNIT_DECIMAL); // daisy invests 20 APT in alice's pool worth 22 APT
         simple_invest(alice, alice_acct, 5 * UNIT_DECIMAL); // alice invests 5 more APT in her own pool worth 42 APT
-        print_investor_stakes(alice_acct, b"simple_portfolio");
 
         simple_withdraw(bob, alice_acct, 1 * UNIT_DECIMAL); // bob has 1.9575 to withdraw
         simple_withdraw(bob, alice_acct, 9 * UNIT_DECIMAL/10);
         simple_withdraw(bob, alice_acct, 5 * UNIT_DECIMAL/100);
         simple_withdraw(bob, alice_acct, 7 * UNIT_DECIMAL/1000);
         simple_withdraw(bob, alice_acct, 5 * UNIT_DECIMAL/10000); // rounding error causes some issues here
-
-        lock_and_unlock(admin);
-
+        //
+        // lock_and_unlock(admin);
+        //
         simple_withdraw(carl, alice_acct, 100 * UNIT_DECIMAL);
-        simple_withdraw(alice, alice_acct, 100 * UNIT_DECIMAL);
+        // simple_withdraw(alice, alice_acct, 100 * UNIT_DECIMAL);
 
         print_investor_stakes(alice_acct, b"simple_portfolio");
 
+        //print_account_info(alice);
+        //print_investor_stakes(alice_acct, b"simple_portfolio");
         yearly_management(alice, alice_acct, b"simple_portfolio");
+        //print_investor_stakes(alice_acct, b"simple_portfolio");
+        //print_account_info(alice);
+
+        print_account_info(admin);
+
         update_management_fee(admin, 5 * UNIT_DECIMAL);
         yearly_management(admin, alice_acct, b"simple_portfolio");
+        print_account_info(admin);
+        yearly_management(admin, alice_acct, b"simple_portfolio");
 
+        print_account_info(admin);
         print_investor_stakes(alice_acct, b"simple_portfolio");
 
-        simple_withdraw(daisy, alice_acct, 100 * UNIT_DECIMAL);
-
+        // simple_withdraw(daisy, alice_acct, 100 * UNIT_DECIMAL);
+        //
         send_funds_to_user<APT>(alice, daisy_acct, 10 * UNIT_DECIMAL);
 
         transfer_manager(alice, address_of(alice), daisy_acct, b"simple_portfolio");
         repossess(admin, address_of(daisy), b"simple_portfolio");
 
-        print_account_info(admin);
+        //print_account_info(daisy);
     }
 
     public entry fun create_simple_pool(manager: &signer, amount: u64, management_fee: u64){
@@ -241,5 +246,5 @@ module mira::test1 {
     public entry fun update_management_fee(admin: &signer, fee: u64){
         mira::update_management_fee(admin, fee);
     }
-}
 
+}

@@ -10,9 +10,10 @@ module mira::test1 {
     use mira::coins;
     // use std::string;
     use std::vector;
-    use mira::mira::{print_investor_stakes, print_account_info, send_funds_to_user, transfer_manager, repossess};
+    use mira::mira::{print_investor_stakes, send_funds_to_user, transfer_manager, repossess, print_account_info};
     use std::option;
     use std::option::some;
+    use aptos_framework::genesis;
 
     const UNIT_DECIMAL: u64 = 100000000;
 
@@ -31,6 +32,9 @@ module mira::test1 {
         carl: &signer,
         daisy: &signer
     ) {
+
+        genesis::setup();
+
         let bank_addr = address_of(bank);
         // account::create_account_for_test(bank_addr);
         coins::init_local_coins(bank);
@@ -82,7 +86,7 @@ module mira::test1 {
         create_simple_pool(alice, 1005 * UNIT_DECIMAL/100, 4 * UNIT_DECIMAL); // alice deposits 10.05 APT in simple portfolio, fee @ 4%
         create_btc_pool(alice, 1 * UNIT_DECIMAL, 10 * UNIT_DECIMAL); // alice deposits 1 BTC in btc portfolio, fee @ 1%
         btc_invest(daisy, alice_acct, 2 * UNIT_DECIMAL); // daisy invests 2 BTC in btc portfolio
-        //btc_withdraw(daisy, alice_acct, 2 * UNIT_DECIMAL); // daisy withdraws max amount, TODO: fix can't withdraw in BTC bc of table issue
+        //btc_withdraw(daisy, alice_acct, 2 * UNIT_DECIMAL); // daisy withdraws max amount TODO: won't work until swap function implemented
         update_simple_pool(alice, 2125 * UNIT_DECIMAL/1000); // alice updates fee to 2.125%, allocation, rebalancing, and rebalance_on_investment
 
         change_gas_funds(alice, 5 * UNIT_DECIMAL / 100, 1); // remove 0.05 APT from gas funds
@@ -90,6 +94,7 @@ module mira::test1 {
 
         manager_rebalance(alice);
 
+        simple_invest(alice, alice_acct, 5 * UNIT_DECIMAL); //
         simple_invest(bob, alice_acct, 1 * UNIT_DECIMAL); // bob invests 1 APT in alice's pool worth 10 APT, giving him 8.8% stake after fees
         simple_invest(bob, alice_acct, 1 * UNIT_DECIMAL); // bob invests another 1 APT in alice's pool worth 11 APT, giving him 16.2% stake after fees
         simple_invest(carl, alice_acct, 10 * UNIT_DECIMAL); // carl invests 10 APT in alice's pool worth 12 APT
@@ -108,20 +113,22 @@ module mira::test1 {
         simple_withdraw(carl, alice_acct, 100 * UNIT_DECIMAL);
         simple_withdraw(alice, alice_acct, 100 * UNIT_DECIMAL);
 
+        print_investor_stakes(alice_acct, b"simple_portfolio");
+
         yearly_management(alice, alice_acct, b"simple_portfolio");
         update_management_fee(admin, 5 * UNIT_DECIMAL);
         yearly_management(admin, alice_acct, b"simple_portfolio");
 
         print_investor_stakes(alice_acct, b"simple_portfolio");
 
-        // simple_withdraw(daisy, alice_acct, 100 * UNIT_DECIMAL); TODO: fix last stakeholder can't withdraw everything
+        simple_withdraw(daisy, alice_acct, 100 * UNIT_DECIMAL);
 
         send_funds_to_user<APT>(alice, daisy_acct, 10 * UNIT_DECIMAL);
 
         transfer_manager(alice, address_of(alice), daisy_acct, b"simple_portfolio");
         repossess(admin, address_of(daisy), b"simple_portfolio");
 
-        print_account_info(daisy);
+        print_account_info(admin);
     }
 
     public entry fun create_simple_pool(manager: &signer, amount: u64, management_fee: u64){
@@ -215,11 +222,11 @@ module mira::test1 {
     }
 
     public entry fun simple_withdraw(investor: &signer, manager: address, amount: u64){
-        mira::withdraw<APT>(investor, b"simple_portfolio", manager, amount);
+        mira::withdraw<APT>(investor, b"simple_portfolio", manager, amount, 0);
     }
 
     public entry fun btc_withdraw(investor: &signer, manager: address, amount: u64){
-        mira::withdraw<BTC>(investor, b"simple_portfolio", manager, amount);
+        mira::withdraw<BTC>(investor, b"btc_portfolio", manager, amount, 0);
     }
 
     public entry fun lock_and_unlock(admin: &signer){
@@ -234,5 +241,5 @@ module mira::test1 {
     public entry fun update_management_fee(admin: &signer, fee: u64){
         mira::update_management_fee(admin, fee);
     }
-
 }
+
