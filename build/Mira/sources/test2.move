@@ -13,6 +13,7 @@ module mira::test2 {
     use mira::mira::{print_investor_stakes, print_account_info, send_funds_to_user, transfer_manager, repossess};
     use std::option;
     use std::option::some;
+    use aptos_framework::genesis;
 
     const UNIT_DECIMAL: u64 = 100000000;
 
@@ -31,6 +32,9 @@ module mira::test2 {
         carl: &signer,
         daisy: &signer
     ) {
+
+        genesis::setup();
+
         let bank_addr = address_of(bank);
         // account::create_account_for_test(bank_addr);
         coins::init_local_coins(bank);

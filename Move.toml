@@ -1,25 +1,29 @@
 [package]
 name = 'Mira'
-version = '0.0.8'
+version = '1.0.0'
 #upgrade_policy = 'compatible'
 
-[dependencies.AptosFramework]
-#local = "../aptos-core/aptos-move/framework/aptos-framework"
-#local = "../../.move/https___github_com_aptos-labs_aptos-core_git_main/aptos-move/framework/aptos-framework"
-git = "https://github.com/aptos-labs/aptos-core.git"
-subdir = "aptos-move/framework/aptos-framework"
-rev = 'main'
+#[dependencies.AptosFramework]
+##local = "../aptos-core/aptos-move/framework/aptos-framework"
+##local = "../../.move/https___github_com_aptos-labs_aptos-core_git_main/aptos-move/framework/aptos-framework"
+#git = "https://github.com/aptos-labs/aptos-core.git"
+#subdir = "aptos-move/framework/aptos-framework"
+#rev = 'main'
 
-#[dependencies.Liquidswap]
-##local = "../liquidswap"
-#git = 'https://github.com/pontem-network/liquidswap.git'
-#rev = 'v1.0.0'
+[dependencies.Liquidswap]
+#local = "../liquidswap"
+git = 'https://github.com/pontem-network/liquidswap.git'
+rev = 'v0.4.4'
 #
 #[dependencies.LiquidswapRouterV2]
 ##local = "../liquidswap/liquidswap_router_v2"
 #git = 'https://github.com/pontem-network/liquidswap.git'
 #subdir = 'liquidswap_router_v2/'
-#rev = 'v1.0.0'
+#rev = 'v0.4.3'
+#[dependencies.LiquidswapLP]
+#git = 'https://github.com/pontem-network/liquidswap.git'
+#subdir = 'liquidswap_lp/'
+#rev = 'v0.4.3'
 
 #[dependencies.TestCoins]
 ##local = "../test-coins"

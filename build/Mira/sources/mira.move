@@ -13,23 +13,24 @@ module mira::mira {
     // use liquidswap::curves::Uncorrelated;
     use aptos_std::table;
     use mira::coins::{BTC, ETH, SOL, USDC, APT};
+    //use liquidswap::liquidity_pool::get_cumulative_prices;
     // use liquidswap::router_v2;
     use aptos_std::table::Table;
     use mira::iterable_table::{IterableTable, head_key, borrow_iter, borrow, contains, };
     use mira::iterable_table;
     use std::option;
+    //use liquidswap::coin_helper::{is_sorted};
+    use aptos_std::debug;
 
     #[test_only]
     use aptos_framework::coin::balance;
-    use aptos_std::debug;
     use aptos_framework::coin::{symbol, transfer};
     use std::option::{Option, is_some, some, is_none, none};
     use aptos_framework::timestamp;
+    //use liquidswap::curves;
 
-    // use mira::math;
 
     const ADMIN: address = @mira;
-
     //error codes
     const INVALID_ADMIN_ADDRESS: u64 = 1;
     const INVALID_ACCOUNT_NAME: u64 = 2;
@@ -961,6 +962,12 @@ module mira::mira {
         //assert!(vector::contains(&VALID_TOKENS, &coin), INVALID_PARAMETER);
         let dividend = 1;
         let divisor = 1;
+
+        // if(is_sorted<coinX, coinY>()){
+        //     get_cumulative_prices<coinX, coinY, curves::Uncorrelated>();
+        // } else {
+        //     get_cumulative_prices<coinY, coinX, curves::Uncorrelated>();
+        // };
         if (symbol<coinX>() == string::utf8(b"APT")) { dividend = 10 };
         if (symbol<coinY>() == string::utf8(b"APT")) { divisor = 10 };
         if (symbol<coinX>() == string::utf8(b"USDC")) { dividend = 1 };
