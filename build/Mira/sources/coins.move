@@ -1,5 +1,9 @@
 module mira::coins {
     use aptos_framework::managed_coin;
+    use std::signer::address_of;
+    use aptos_framework::managed_coin::register;
+
+    const UNIT_DECIMAL: u64 = 100000000;
 
     struct APT {}
     struct USDC {}
@@ -13,6 +17,19 @@ module mira::coins {
         managed_coin::initialize<BTC>(sender, b"Bitcoin", b"BTC", 8, true);
         managed_coin::initialize<ETH>(sender, b"Ethereum", b"ETH", 8, true);
         managed_coin::initialize<SOL>(sender, b"Solana", b"SOL", 8, true);
+
+        register<APT>(sender);
+        register<USDC>(sender);
+        register<BTC>(sender);
+        register<ETH>(sender);
+        register<SOL>(sender);
     }
 
+    public fun mint(sender: &signer){
+        managed_coin::mint<APT>(sender, address_of(sender), 15000 * UNIT_DECIMAL);
+        managed_coin::mint<USDC>(sender, address_of(sender), 150000 * UNIT_DECIMAL);
+        managed_coin::mint<BTC>(sender, address_of(sender), 10 * UNIT_DECIMAL);
+        managed_coin::mint<ETH>(sender, address_of(sender), 150 * UNIT_DECIMAL );
+        managed_coin::mint<SOL>(sender, address_of(sender), 7500 * UNIT_DECIMAL);
+    }
 }

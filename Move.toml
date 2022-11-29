@@ -14,21 +14,19 @@ version = '1.0.0'
 #local = "../liquidswap"
 git = 'https://github.com/pontem-network/liquidswap.git'
 rev = 'v0.4.4'
-#
-#[dependencies.LiquidswapRouterV2]
-##local = "../liquidswap/liquidswap_router_v2"
-#git = 'https://github.com/pontem-network/liquidswap.git'
-#subdir = 'liquidswap_router_v2/'
-#rev = 'v0.4.3'
-#[dependencies.LiquidswapLP]
-#git = 'https://github.com/pontem-network/liquidswap.git'
-#subdir = 'liquidswap_lp/'
-#rev = 'v0.4.3'
 
-#[dependencies.TestCoins]
-##local = "../test-coins"
-#git = 'https://github.com/pontem-network/test-coins.git'
-#rev = 'v0.1.2'
+[dependencies.LiquidswapRouterV2]
+git = 'https://github.com/pontem-network/liquidswap.git'
+subdir = 'liquidswap_router_v2/'
+rev = 'v0.4.4'
+
+[dependencies.TestCoins]
+git = 'https://github.com/pontem-network/test-coins.git'
+rev = 'v0.1.1'
+
+[dependencies.OverflowingMath]
+git = "https://github.com/pontem-network/overflowing-math.git"
+rev = "v0.1.0"
 
 [addresses]
 #make this multisig after audit

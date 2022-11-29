@@ -4,16 +4,17 @@ module mira::test1 {
     use std::signer::address_of;
     use aptos_framework::account;
     use aptos_framework::coin;
-    use aptos_framework::managed_coin;
-    use mira::coins::{USDC, BTC, ETH, SOL, APT};
-    // use mira::mira::{print_real_pool_distribution, print_pool_info, print_investor_stakes};
+    use mira::coins::{BTC, APT, };
     use mira::coins;
-    // use std::string;
     use std::vector;
     use mira::mira::{print_investor_stakes, send_funds_to_user, transfer_manager, repossess, print_account_info};
     use std::option;
     use std::option::some;
     use aptos_framework::genesis;
+    //use aptos_framework::aptos_coin::AptosCoin;
+    // use liquidswap::router::register_pool;
+    // use liquidswap::curves::Uncorrelated;
+    // use aptos_framework::managed_coin::register;
 
     const UNIT_DECIMAL: u64 = 100000000;
 
@@ -22,7 +23,7 @@ module mira::test1 {
     //     burn_cap: BurnCapability<AptosCoin>
     // }
 
-    #[test (bank = @0xbb171011e3d8fb5af1991c6a5d8107c28702db906d9f03e732777800872fec52,
+    #[test (bank = @mira, // bank must be @mira for tests, bc coins module owned by mira
         admin = @mira, alice = @0x222, bob = @0x333, carl = @0x444, daisy = @0x555)]
         public entry fun run_all_tests(
         bank: &signer,
@@ -30,17 +31,15 @@ module mira::test1 {
         alice: &signer,
         bob: &signer,
         carl: &signer,
-        daisy: &signer
+        daisy: &signer,
     ) {
 
         genesis::setup();
 
-        let bank_addr = address_of(bank);
-        // account::create_account_for_test(bank_addr);
+        account::create_account_for_test(address_of(bank));
         coins::init_local_coins(bank);
+        coins::mint(bank);
 
-        let admin_addr = address_of(admin);
-        account::create_account_for_test(admin_addr);
         mira::init_mira(admin);
 
         let alice_acct = address_of(alice);
@@ -68,13 +67,6 @@ module mira::test1 {
         //     mint_cap,
         //     burn_cap
         // });
-
-        // mint coins, total supply of 75,000 APT w/ rough exchange rates
-        managed_coin::mint<APT>(bank, bank_addr, 15000 * UNIT_DECIMAL);
-        managed_coin::mint<USDC>(bank, bank_addr, 150000 * UNIT_DECIMAL);
-        managed_coin::mint<BTC>(bank, bank_addr, 10 * UNIT_DECIMAL);
-        managed_coin::mint<ETH>(bank, bank_addr, 150 * UNIT_DECIMAL );
-        managed_coin::mint<SOL>(bank, bank_addr, 7500 * UNIT_DECIMAL);
 
         coin::transfer<APT>(bank, alice_acct, 100 * UNIT_DECIMAL);
         coin::transfer<BTC>(bank, alice_acct, 1 * UNIT_DECIMAL);
@@ -203,7 +195,7 @@ module mira::test1 {
     }
 
     public entry fun manager_rebalance(manager: &signer){
-        mira::rebalance(manager, address_of(manager), b"simple_portfolio");
+        mira::rebalance<APT>(manager, address_of(manager), b"simple_portfolio");
         // print_pool_info(manager, b"simple_portfolio");
     }
 
