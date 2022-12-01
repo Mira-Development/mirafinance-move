@@ -16,9 +16,12 @@ module mira::liquid_test {
     use mira::better_coins::{BTC, USDC, SOL, mint, add_coins_to_admin, APT, ETH};
     use mira::mira::{ print_real_pool_distribution};
     use std::string;
-    use mira::oracle::init_oracle;
+    use mira::oracle::{init_oracle, update};
     use aptos_framework::timestamp;
     use aptos_framework::timestamp::{set_time_has_started_for_testing};
+    use liquidswap::router_v2;
+    use aptos_std::debug::print;
+    use liquidswap::liquidity_pool::{get_reserves_size, };
 
     const UNIT_DECIMAL: u64 = 100000000;
 
@@ -214,6 +217,11 @@ module mira::liquid_test {
     public fun mint_liquidity<X, Y, Curve>(lp_owner: &signer, coin_x: Coin<X>, coin_y: Coin<Y>): u64 {
         init_oracle<X, Y, Curve>(lp_owner);
         timestamp::fast_forward_seconds(100000);
+
+        let (_, _, _c) = router_v2::get_cumulative_prices<X, Y, Curve>();
+        print(&_c);
+        timestamp::fast_forward_seconds(100000);
+
         let lp_owner_addr = address_of(lp_owner);
         let lp_coins = liquidity_pool::mint<X, Y, Curve>(coin_x, coin_y);
         let lp_coins_val = coin::value(&lp_coins);
@@ -221,6 +229,29 @@ module mira::liquid_test {
             coin::register<LP<X, Y, Curve>>(lp_owner);
         };
         coin::deposit(lp_owner_addr, lp_coins);
+
+        // what's happening here: first, we init oracle, which doesn't do much - in oracle acount
+        // then, we mint liquidity, which calls update_oracle in liquidity_pool, updating price using x_reserve and y_reserve
+        // we should see that x_reserve and y_reserve update by calling ..., but when we call get_cumulative_prices, they are still == 0.
+
+        let (_res_x, _res_y) = get_reserves_size<X, Y, Curve>();
+        print(&_res_x);
+        print(&_res_y);
+
+        //update_cumulative_price_for_test<X, Y>(lp_owner, 0, 0, 0, _res_x, _res_y);
+
+        let (_1, _2, _3) = router_v2::get_cumulative_prices<X, Y, Curve>();
+        print(&_1);
+        print(&_2);
+        print(&_2);
+
+        update<X, Y, Curve>(address_of(lp_owner));
+
+        let (_1, _2, _3) = router_v2::get_cumulative_prices<X, Y, Curve>();
+        print(&_1);
+        print(&_2);
+        print(&_2);
+
         lp_coins_val
     }
 

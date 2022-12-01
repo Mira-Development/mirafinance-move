@@ -3,7 +3,7 @@ module mira::oracle {
     use liquidswap::coin_helper;
     use overflowing_math::overflowing_u128::wrapping_sub;
     use aptos_std::debug::print;
-    use std::string;
+    use liquidswap::router_v2::get_reserves_size;
 
     const MAX_U64: u128 = 18446744073709551615;
     const PERIOD: u64 = 86400;
@@ -31,14 +31,16 @@ module mira::oracle {
     public fun update<X, Y, Curve>(account_addr: address) acquires Oracle {
         let oracle = borrow_global_mut<Oracle<X, Y, Curve>>(account_addr);
 
+        let (_res_x, _res_y) = get_reserves_size<X, Y, Curve>();
+        // print(&res_x);
+        // print(&res_y);
+
         let (x_cumulative_price, y_cumulative_price, last_timestamp) = router_v2::get_cumulative_prices<X, Y, Curve>();
         let time_elapsed = last_timestamp - oracle.last_timestamp;
         assert!(time_elapsed >= PERIOD, time_elapsed);
 
         oracle.x_price_average = (wrapping_sub(x_cumulative_price, oracle.x_cumulative_price) / (time_elapsed as u128));
         oracle.y_price_average = (wrapping_sub(y_cumulative_price, oracle.y_cumulative_price) / (time_elapsed as u128));
-        print(&string::utf8(b"oracle"));
-        print(&(oracle.x_price_average ));
 
         oracle.x_cumulative_price = x_cumulative_price;
         oracle.y_cumulative_price = y_cumulative_price;

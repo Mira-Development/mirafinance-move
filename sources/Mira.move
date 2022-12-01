@@ -25,7 +25,7 @@ module mira::mira {
     use liquidswap::curves::Uncorrelated;
     use aptos_std::debug::print;
     use mira::oracle::{update, consult};
-    use aptos_framework::timestamp::now_seconds;
+    use liquidswap::router_v2;
 
     const ADMIN: address = @mira;
     //error codes
@@ -856,12 +856,14 @@ module mira::mira {
         let _pool_addr = address_of(signer);
         register_coin<CoinY>(signer);
 
-        print(&now_seconds());
-        update<CoinX, CoinY, Uncorrelated>(@test_lp_owner);
-        let _amount_out = (amount * get_exchange_rate<CoinX, CoinY>());
-        _amount_out = consult<CoinX, CoinY, Uncorrelated>(@test_lp_owner, amount);
+        //update<CoinX, CoinY, Uncorrelated>(@test_lp_owner);
+        // let _amount_out = (amount * get_exchange_rate<CoinX, CoinY>());
+        let _amount_out = consult<CoinX, CoinY, Uncorrelated>(@test_lp_owner, amount);
+        let (_1, _2, _3) = router_v2::get_cumulative_prices<CoinX, CoinY, Uncorrelated>();
+        // print(&_1);
+        // print(&_2);
+        // print(&_2);
 
-        print(&_amount_out);
         //
         // // for now, passing in string names, but should find a way to make generic function below work for liquidswap
         // let sell = coin::withdraw<CoinX>(signer, amount);
