@@ -10,18 +10,16 @@ module mira::liquid_test {
     use aptos_framework::genesis;
     use liquidswap::lp_account;
     use liquidswap::liquidity_pool;
-    use aptos_framework::coin::{Coin, register};
+    use aptos_framework::coin::{Coin, register, };
     use liquidswap_lp::lp_coin::LP;
     use liquidswap::curves::Uncorrelated;
     use mira::better_coins::{BTC, USDC, SOL, mint, add_coins_to_admin, APT, ETH};
-    use mira::mira::{ print_real_pool_distribution};
+    use mira::mira::{print_real_pool_distribution, print_investor_stakes};
     use std::string;
     use mira::oracle::{init_oracle, update};
     use aptos_framework::timestamp;
-    use aptos_framework::timestamp::{set_time_has_started_for_testing};
-    use liquidswap::router_v2;
-    use aptos_std::debug::print;
-    use liquidswap::liquidity_pool::{get_reserves_size, };
+    use aptos_framework::timestamp::{set_time_has_started_for_testing, fast_forward_seconds};
+    use liquidswap::liquidity_pool::update_cumulative_price_for_test;
 
     const UNIT_DECIMAL: u64 = 100000000;
 
@@ -36,13 +34,12 @@ module mira::liquid_test {
 
         genesis::setup(); //?
         set_time_has_started_for_testing(admin);
-        timestamp::fast_forward_seconds(100000);
 
         account::create_account_for_test(address_of(admin));
         mint_helper(admin);
 
         mira::init_mira(admin);
-        timestamp::fast_forward_seconds(100000);
+        timestamp::fast_forward_seconds(10);
 
         let alice_acct = address_of(alice);
         account::create_account_for_test(alice_acct);
@@ -60,14 +57,35 @@ module mira::liquid_test {
         account::create_account_for_test(daisy_acct);
         mira::connect_account(dalya, b"Daisy");
 
-        coin::transfer<USDC>(admin, alice_acct, 100 * UNIT_DECIMAL);
-        coin::transfer<USDC>(admin, bob_acct, 2 * UNIT_DECIMAL);
-        coin::transfer<USDC>(admin, carl_acct, 10 * UNIT_DECIMAL);
-        coin::transfer<USDC>(admin, daisy_acct, 20 * UNIT_DECIMAL);
+        coin::transfer<APT>(admin, alice_acct, 100 * UNIT_DECIMAL);
+        coin::transfer<APT>(admin, bob_acct, 2 * UNIT_DECIMAL);
+        coin::transfer<APT>(admin, carl_acct, 10 * UNIT_DECIMAL);
+        coin::transfer<APT>(admin, daisy_acct, 20 * UNIT_DECIMAL);
         coin::transfer<BTC>(admin, daisy_acct, 2 * UNIT_DECIMAL);
 
-        timestamp::fast_forward_seconds(100000);
-        create_simple_pool(alice, 1005 * UNIT_DECIMAL/100, 4 * UNIT_DECIMAL); // alice deposits 10.05 USD in simple portfolio, fee @ 4%
+        create_simple_pool(alice, 1005 * UNIT_DECIMAL/100, 4 * UNIT_DECIMAL); // alice deposits 10.05 APT in simple portfolio, fee @ 4%
+        //create_btc_pool(alice, 1 * UNIT_DECIMAL, 10 * UNIT_DECIMAL); // alice deposits 1 BTC in btc portfolio, fee @ 10%
+        update_simple_pool(alice, 2125 * UNIT_DECIMAL/1000); // alice updates fee to 2.125%, allocation, rebalancing, and rebalance_on_investment
+
+        change_gas_funds(alice, 5 * UNIT_DECIMAL / 100, 1); // remove 0.05 APT from gas funds
+        change_gas_funds(alice, 20 * UNIT_DECIMAL / 100, 0); // add 0.20 APT to gas funds
+
+        manager_rebalance(alice);
+
+        simple_invest(alice, alice_acct, 5 * UNIT_DECIMAL); //
+        simple_invest(bob, alice_acct, 1 * UNIT_DECIMAL); // bob invests 1 APT in alice's pool worth 10 APT, giving him 8.8% stake after fees
+        simple_invest(bob, alice_acct, 1 * UNIT_DECIMAL); // bob invests another 1 APT in alice's pool worth 11 APT, giving him 16.2% stake after fees
+        simple_invest(carl, alice_acct, 10 * UNIT_DECIMAL); // carl invests 10 APT in alice's pool worth 12 APT
+        simple_invest(dalya, alice_acct, 20 * UNIT_DECIMAL); // daisy invests 20 APT in alice's pool worth 22 APT
+        simple_invest(alice, alice_acct, 5 * UNIT_DECIMAL); // alice invests 5 more APT in her own pool worth 42 APT
+        print_real_pool_distribution(alice_acct, string::utf8(b"simple_portfolio"));
+        print_investor_stakes(alice_acct, b"simple_portfolio");
+
+        simple_withdraw(bob, alice_acct, 1 * UNIT_DECIMAL); // bob has 1.9575 to withdraw
+        //simple_withdraw(bob, alice_acct, 9 * UNIT_DECIMAL/10);
+        //simple_withdraw(bob, alice_acct, 5 * UNIT_DECIMAL/100);
+        //simple_withdraw(bob, alice_acct, 7 * UNIT_DECIMAL/1000);
+        //simple_withdraw(bob, alice_acct, 5 * UNIT_DECIMAL/10000); // rounding error causes some issues here
     }
 
     public entry fun create_simple_pool(manager: &signer, amount: u64, management_fee: u64){
@@ -79,7 +97,7 @@ module mira::liquid_test {
         vector::push_back(&mut simple_allocation, 50);
         vector::push_back(&mut simple_allocation, 50);
 
-        mira::create_pool<USDC>(manager,
+        mira::create_pool<APT>(manager,
             b"simple_portfolio",
             simple_tokens,
             simple_allocation,
@@ -100,17 +118,20 @@ module mira::liquid_test {
         vector::push_back(&mut update_tokens, b"USDC");
         vector::push_back(&mut update_tokens, b"BTC");
         vector::push_back(&mut update_tokens, b"SOL");
+        vector::push_back(&mut update_tokens, b"ETH");
 
         let update_allocation = vector::empty<u64>();
         vector::push_back(&mut update_allocation, 25);
         vector::push_back(&mut update_allocation, 20);
         vector::push_back(&mut update_allocation, 25);
         vector::push_back(&mut update_allocation, 30);
+        vector::push_back(&mut update_allocation, 0);
 
         mira::update_pool(manager, b"simple_portfolio", some(update_tokens), some(update_allocation),
             some(management_fee), some(5), some(1), option::none(), 0);
 
         // print_pool_info(manager, b"simple_portfolio");
+        // print_real_pool_distribution(address_of(manager), string::utf8(b"simple_portfolio"));
         // print_investor_stakes(address_of(manager), b"simple_portfolio")
     }
 
@@ -125,7 +146,7 @@ module mira::liquid_test {
         vector::push_back(&mut simple_allocation, 50);
         vector::push_back(&mut simple_allocation, 50);
 
-        mira::create_pool<mira::coins::BTC>(manager,
+        mira::create_pool<BTC>(manager,
             b"btc_portfolio",
             simple_tokens,
             simple_allocation,
@@ -143,6 +164,7 @@ module mira::liquid_test {
 
     public entry fun manager_rebalance(manager: &signer){
         mira::rebalance<APT>(manager, address_of(manager), b"simple_portfolio");
+        print_real_pool_distribution(address_of(manager), string::utf8(b"simple_portfolio"));
         // print_pool_info(manager, b"simple_portfolio");
     }
 
@@ -151,21 +173,21 @@ module mira::liquid_test {
     }
 
     public entry fun simple_invest(investor: &signer, pool_owner: address, amount: u64){
-        mira::invest<mira::coins::APT>(investor, b"simple_portfolio", pool_owner, amount);
+        mira::invest<APT>(investor, b"simple_portfolio", pool_owner, amount);
         // print_investor_stakes(pool_owner, b"simple_portfolio");
     }
 
     public entry fun btc_invest(investor: &signer, pool_owner: address, amount: u64){
-        mira::invest<mira::coins::BTC>(investor, b"btc_portfolio", pool_owner, amount);
+        mira::invest<BTC>(investor, b"btc_portfolio", pool_owner, amount);
         // print_investor_stakes(pool_owner, b"btc_portfolio");
     }
 
     public entry fun simple_withdraw(investor: &signer, manager: address, amount: u64){
-        mira::withdraw<mira::coins::APT>(investor, b"simple_portfolio", manager, amount, 0);
+        mira::withdraw<APT>(investor, b"simple_portfolio", manager, amount, 0);
     }
 
     public entry fun btc_withdraw(investor: &signer, manager: address, amount: u64){
-        mira::withdraw<mira::coins::BTC>(investor, b"btc_portfolio", manager, amount, 0);
+        mira::withdraw<BTC>(investor, b"btc_portfolio", manager, amount, 0);
     }
 
     public entry fun lock_and_unlock(admin: &signer){
@@ -218,10 +240,6 @@ module mira::liquid_test {
         init_oracle<X, Y, Curve>(lp_owner);
         timestamp::fast_forward_seconds(100000);
 
-        let (_, _, _c) = router_v2::get_cumulative_prices<X, Y, Curve>();
-        print(&_c);
-        timestamp::fast_forward_seconds(100000);
-
         let lp_owner_addr = address_of(lp_owner);
         let lp_coins = liquidity_pool::mint<X, Y, Curve>(coin_x, coin_y);
         let lp_coins_val = coin::value(&lp_coins);
@@ -230,27 +248,10 @@ module mira::liquid_test {
         };
         coin::deposit(lp_owner_addr, lp_coins);
 
-        // what's happening here: first, we init oracle, which doesn't do much - in oracle acount
-        // then, we mint liquidity, which calls update_oracle in liquidity_pool, updating price using x_reserve and y_reserve
-        // we should see that x_reserve and y_reserve update by calling ..., but when we call get_cumulative_prices, they are still == 0.
-
-        let (_res_x, _res_y) = get_reserves_size<X, Y, Curve>();
-        print(&_res_x);
-        print(&_res_y);
-
-        //update_cumulative_price_for_test<X, Y>(lp_owner, 0, 0, 0, _res_x, _res_y);
-
-        let (_1, _2, _3) = router_v2::get_cumulative_prices<X, Y, Curve>();
-        print(&_1);
-        print(&_2);
-        print(&_2);
-
+        fast_forward_seconds(1000000);
         update<X, Y, Curve>(address_of(lp_owner));
-
-        let (_1, _2, _3) = router_v2::get_cumulative_prices<X, Y, Curve>();
-        print(&_1);
-        print(&_2);
-        print(&_2);
+        // print(&symbol<Y>());
+        // print_oracle<X, Y, Uncorrelated>(@test_lp_owner);
 
         lp_coins_val
     }
@@ -258,13 +259,22 @@ module mira::liquid_test {
     fun setup_pools(): signer {
         let lp_owner = setup_lp_owner();
 
-        liquidity_pool::register<APT, USDC, Uncorrelated>(&lp_owner);
+        update_cumulative_price_for_test<APT, USDC>(&lp_owner, 0, (10 * UNIT_DECIMAL as u128),
+            (1 * UNIT_DECIMAL/10 as u128), 0, 0);
+        update_cumulative_price_for_test<APT, BTC>(&lp_owner, 0, (1* UNIT_DECIMAL / 1000 as u128),
+            (1000 * UNIT_DECIMAL as u128), 0, 0);
+        update_cumulative_price_for_test<APT, ETH>(&lp_owner, 0, (1* UNIT_DECIMAL / 100 as u128),
+            (100 * UNIT_DECIMAL as u128), 0, 0);
+        update_cumulative_price_for_test<APT, SOL>(&lp_owner, 0, (1* UNIT_DECIMAL / 2 as u128),
+            (2 * UNIT_DECIMAL as u128), 0, 0);
 
-        liquidity_pool::register<APT, BTC, Uncorrelated>(&lp_owner);
-
-        liquidity_pool::register<APT, ETH, Uncorrelated>(&lp_owner);
-
-        liquidity_pool::register<APT, SOL, Uncorrelated>(&lp_owner);
+        // liquidity_pool::register<APT, USDC, Uncorrelated>(&lp_owner);
+        //
+        // liquidity_pool::register<APT, BTC, Uncorrelated>(&lp_owner);
+        //
+        // liquidity_pool::register<APT, ETH, Uncorrelated>(&lp_owner);
+        //
+        // liquidity_pool::register<APT, SOL, Uncorrelated>(&lp_owner);
         lp_owner
     }
 
@@ -274,14 +284,14 @@ module mira::liquid_test {
         let lp_owner = setup_pools();
         let bank = address_of(coin_admin);
 
-        mint_liquidity<APT, USDC, Uncorrelated>(&lp_owner, mint<APT>(coin_admin, 1000 * UNIT_DECIMAL),
-            mint<USDC>(coin_admin, 10000 * UNIT_DECIMAL));
+        mint_liquidity<APT, USDC, Uncorrelated>(&lp_owner, mint<APT>(coin_admin, 10000 * UNIT_DECIMAL),
+            mint<USDC>(coin_admin, 100000 * UNIT_DECIMAL));
         mint_liquidity<APT, BTC, Uncorrelated>(&lp_owner, mint<APT>(coin_admin, 10000 * UNIT_DECIMAL),
             mint<BTC>(coin_admin, 10 * UNIT_DECIMAL));
-        mint_liquidity<APT, ETH, Uncorrelated>(&lp_owner, mint<APT>(coin_admin, 1000 * UNIT_DECIMAL),
+        mint_liquidity<APT, ETH, Uncorrelated>(&lp_owner, mint<APT>(coin_admin, 10000 * UNIT_DECIMAL),
             mint<ETH>(coin_admin, 100 * UNIT_DECIMAL));
-        mint_liquidity<APT, SOL, Uncorrelated>(&lp_owner, mint<APT>(coin_admin, 1000 * UNIT_DECIMAL),
-            mint<SOL>(coin_admin, 500 * UNIT_DECIMAL));
+        mint_liquidity<APT, SOL, Uncorrelated>(&lp_owner, mint<APT>(coin_admin, 10000 * UNIT_DECIMAL),
+            mint<SOL>(coin_admin, 5000 * UNIT_DECIMAL));
 
         // mint for bank:
         register<APT>(coin_admin);

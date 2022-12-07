@@ -24,8 +24,9 @@ module mira::mira {
     use aptos_framework::timestamp;
     use liquidswap::curves::Uncorrelated;
     use aptos_std::debug::print;
-    use mira::oracle::{update, consult};
+    use mira::oracle::{consult};
     use liquidswap::router_v2;
+    use liquidswap::coin_helper;
 
     const ADMIN: address = @mira;
     //error codes
@@ -42,7 +43,8 @@ module mira::mira {
     const NO_FUNDS_LEFT: u64 = 11;
     const ROUNDING_ERROR: u64 = 12;
     const CREATE_MIRA_ACCOUNT: u64 = 13;
-    const KEYISSUE:u64 = 14;
+    const KEY_ISSUE:u64 = 14;
+    const LIQUIDSWAP_FEE_TOO_HIGH:u64 = 15;
 
     // parameters
     const MAX_MANAGEMENT_FEE: u64 = 1000000000;
@@ -256,6 +258,7 @@ module mira::mira {
             CREATE_MIRA_ACCOUNT
         ); // in the future, auto-create account with random username
 
+
         let creation_fee = borrow_global_mut<MiraFees>(ADMIN).creation;
         deposit_amount = deposit_amount * (TOTAL_INVESTOR_STAKE -  creation_fee)/ TOTAL_INVESTOR_STAKE;
         transfer<CoinX>(manager, ADMIN, (deposit_amount * creation_fee) / TOTAL_INVESTOR_STAKE);
@@ -457,8 +460,7 @@ module mira::mira {
         let mira_pool = borrow_global_mut<MiraPool>(address_of(&pool_signer));
 
         assert!(
-            amount >= (mira_pool.minimum_contribution / UNIT_DECIMAL) * (get_exchange_rate<APT, CoinX>(
-            ) / UNIT_DECIMAL),
+            amount >= get_exchange_amt<APT, CoinX>(mira_pool.minimum_contribution / UNIT_DECIMAL) ,
             INSUFFICIENT_FUNDS
         );
 
@@ -544,7 +546,7 @@ module mira::mira {
             let user_withdraw_status = borrow_global_mut<MiraUserWithdraw>(investor_addr);
             let now = timestamp::now_seconds();
             assert!(simple_map::contains_key(&mut user_withdraw_status.last_withdraw_timestamp,&address_of(&pool_signer)),
-                    KEYISSUE);
+                    KEY_ISSUE);
             let last_timestamp = simple_map::borrow_mut<address, u64>(
                 &mut user_withdraw_status.last_withdraw_timestamp,
                 &address_of(&pool_signer)
@@ -658,31 +660,92 @@ module mira::mira {
 
         // first loop: sell all tokens in excess
         while (i < vector::length(&mira_pool.token_names)) {
+            // print(&b"fund value: ");
+            // print(&fund_val);
             let name = string::utf8(*vector::borrow<vector<u8>>(&mira_pool.token_names, i));
             let index_allocation = vector::borrow<u64>(&mira_pool.token_allocations, i);
-            let target_amount = fund_val * (*index_allocation as u64) / 100;
+            let target_balance = *index_allocation * fund_val / 100;
 
-            if (name == symbol<USDC>()) {rebalance_helper<USDC, CoinX>(&pool_signer, target_amount, 1); };
-            if (name == symbol<BTC>()) {rebalance_helper<BTC, CoinX>(&pool_signer, target_amount, 1); };
-            if (name == symbol<ETH>()) {rebalance_helper<ETH, CoinX>(&pool_signer, target_amount, 1); };
-            if (name == symbol<SOL>()) {rebalance_helper<SOL, CoinX>(&pool_signer, target_amount, 1); };
+            if (name == symbol<APT>()) {rebalance_helper<CoinX, APT>(&pool_signer, target_balance, 1); };
+            if (name == symbol<USDC>()) {rebalance_helper<CoinX, USDC>(&pool_signer, target_balance, 1); };
+            if (name == symbol<BTC>()) { rebalance_helper<CoinX, BTC>(&pool_signer, target_balance, 1); };
+            if (name == symbol<ETH>()) {rebalance_helper<CoinX, ETH>(&pool_signer, target_balance, 1); };
+            if (name == symbol<SOL>()) {rebalance_helper<CoinX, SOL>(&pool_signer, target_balance, 1); };
 
             i = i + 1;
         };
 
         // second loop: buy all tokens in shortage
         while (j < vector::length(&mira_pool.token_names)) {
+            // print(&b"fund value: ");
+            // print(&fund_val);
             let name = string::utf8(*vector::borrow<vector<u8>>(&mira_pool.token_names, j));
             let index_allocation = vector::borrow<u64>(&mira_pool.token_allocations, j);
-            let target_amount = fund_val * (*index_allocation as u64) / 100;
+            let target_balance = *index_allocation * fund_val / 100;
 
-            if (name == symbol<USDC>()) {rebalance_helper<USDC, CoinX>(&pool_signer, target_amount, 0); };
-            if (name == symbol<BTC>()) {rebalance_helper<BTC, CoinX>(&pool_signer, target_amount, 0); };
-            if (name == symbol<ETH>()) {rebalance_helper<ETH, CoinX>(&pool_signer, target_amount, 0); };
-            if (name == symbol<SOL>()) {rebalance_helper<SOL, CoinX>(&pool_signer, target_amount, 0); };
+            if (name == symbol<APT>()) {rebalance_helper<CoinX, APT>(&pool_signer, target_balance, 0); };
+            if (name == symbol<USDC>()) {rebalance_helper<CoinX, USDC>(&pool_signer, target_balance, 0); };
+            if (name == symbol<BTC>()) { rebalance_helper<CoinX, BTC>(&pool_signer, target_balance, 0); };
+            if (name == symbol<ETH>()) {rebalance_helper<CoinX, ETH>(&pool_signer, target_balance, 0); };
+            if (name == symbol<SOL>()) {rebalance_helper<CoinX, SOL>(&pool_signer, target_balance, 0); };
 
             j = j + 1;
         };
+    }
+
+    entry fun rebalance_helper<CoinX, CoinY>(pool_signer: &signer, target_balance: u64, buy_or_sell: u8){
+        // update to check type instead of symbol name
+        if(symbol<CoinX>() == symbol<CoinY>()){return};
+        let current_balance = get_exchange_amt<CoinY, CoinX>(coin::balance<CoinY>(address_of(pool_signer)));
+        if (buy_or_sell == 0){
+            if (current_balance < target_balance) {
+                print(&b"BUY");
+                print(&b"current: ");
+                print(&current_balance);
+                print(&b"target: ");
+                print(&target_balance);
+                swap<CoinX, CoinY>(pool_signer, target_balance - current_balance);
+            }
+        } else {
+            if (current_balance > target_balance) {
+                print(&b"SELL");
+                print(&b"current: ");
+                print(&current_balance);
+                print(&b"target: ");
+                print(&target_balance);
+                swap<CoinY, CoinX>(pool_signer, get_exchange_amt<CoinX, CoinY>(current_balance - target_balance));
+            }
+        };
+    }
+
+    entry fun swap<CoinX, CoinY>(signer: &signer, amount: u64) {
+        register_coin<CoinY>(signer);
+
+        // uncomment below code when going live
+        // update<CoinX, CoinY, Uncorrelated>(@test_lp_owner);
+        let _amount_out = 0;
+        if (coin_helper::is_sorted<CoinX, CoinY>()) {
+            _amount_out = consult<CoinX, CoinY, Uncorrelated>(@test_lp_owner, amount, 0);
+        } else {
+            _amount_out = consult<CoinX, CoinY, Uncorrelated>(@test_lp_owner, amount, 1);
+        };
+
+        print(&symbol<CoinX>());
+        print(&amount);
+        print(&symbol<CoinY>());
+        print(&_amount_out);
+
+        let sell = coin::withdraw<CoinX>(signer, amount);
+        let buy = router_v2::get_amount_out<CoinX, CoinY, Uncorrelated>(amount);
+        print(&buy);
+        print(&_amount_out);
+        assert!(buy >= _amount_out * 990/ 1000, LIQUIDSWAP_FEE_TOO_HIGH); // liquidswap fee is > 1%
+
+        let swap = router_v2::swap_exact_coin_for_coin<CoinX, CoinY, Uncorrelated>(
+            sell,
+            buy
+        );
+        coin::deposit(address_of(signer), swap);
     }
 
     // add or remove gas funds
@@ -838,54 +901,23 @@ module mira::mira {
         );
     }
 
-    entry fun rebalance_helper<CoinX, CoinY>(pool_signer: &signer, amount: u64, buy_or_sell: u8){
-        let x_amt = coin::balance<CoinX>(address_of(pool_signer));
-        if (buy_or_sell == 0){
-            if (x_amt < amount) {
-                swap<CoinY, CoinX>(pool_signer, amount - x_amt);
-            }
-        } else {
-            if (x_amt > amount) {
-                swap<CoinX, CoinY>(pool_signer, x_amt - amount);
-            }
-        };
-    }
-
-    entry fun swap<CoinX, CoinY>(signer: &signer, amount: u64) {
-        //assert!(vector::contains(&VALID_TOKENS, coinX, INVALID_PARAMETER);
-        let _pool_addr = address_of(signer);
-        register_coin<CoinY>(signer);
-
-        //update<CoinX, CoinY, Uncorrelated>(@test_lp_owner);
-        // let _amount_out = (amount * get_exchange_rate<CoinX, CoinY>());
-        let _amount_out = consult<CoinX, CoinY, Uncorrelated>(@test_lp_owner, amount);
-        let (_1, _2, _3) = router_v2::get_cumulative_prices<CoinX, CoinY, Uncorrelated>();
-        // print(&_1);
-        // print(&_2);
-        // print(&_2);
-
-        //
-        // // for now, passing in string names, but should find a way to make generic function below work for liquidswap
-        // let sell = coin::withdraw<CoinX>(signer, amount);
-        // let buy = router_v2::get_amount_out<CoinX, CoinY, Uncorrelated>(amount_out);
-        //
-        // let swap = router_v2::swap_exact_coin_for_coin<CoinX, CoinY, Uncorrelated>(
-        //     sell,
-        //     buy
-        // );
-        // coin::deposit(pool_addr, swap);
-    }
-
     entry fun get_fund_value<CoinX>(manager: address, pool_name: vector<u8>): u64 acquires MiraAccount, MiraPool {
         let pool_signer = address_of(&get_pool_signer(manager, pool_name));
         let gas_value = borrow_global<MiraPool>(pool_signer).gas_funds;
 
         let value = 0;
-        value = value + coin::balance<APT>(pool_signer) * get_exchange_rate<CoinX, APT>() / UNIT_DECIMAL;
-        value = value + coin::balance<USDC>(pool_signer) * get_exchange_rate<CoinX, USDC>() / UNIT_DECIMAL;
-        value = value + coin::balance<BTC>(pool_signer) * get_exchange_rate<CoinX, BTC>() / UNIT_DECIMAL;
-        value = value + coin::balance<ETH>(pool_signer) * get_exchange_rate<CoinX, ETH>() / UNIT_DECIMAL;
-        value = value + coin::balance<SOL>(pool_signer) * get_exchange_rate<CoinX, SOL>() / UNIT_DECIMAL;
+
+        value = value + get_exchange_amt<APT, CoinX>(coin::balance<APT>(pool_signer));
+        value = value + get_exchange_amt<USDC, CoinX>(coin::balance<USDC>(pool_signer));
+        value = value + get_exchange_amt<BTC, CoinX>(coin::balance<BTC>(pool_signer));
+        value = value + get_exchange_amt<ETH, CoinX>(coin::balance<ETH>(pool_signer));
+        value = value + get_exchange_amt<SOL, CoinX>(coin::balance<SOL>(pool_signer));
+
+        // value = value + coin::balance<APT>(pool_signer) * get_exchange_rate<CoinX, APT>() / UNIT_DECIMAL;
+        // value = value + coin::balance<USDC>(pool_signer) * get_exchange_rate<CoinX, USDC>() / UNIT_DECIMAL;
+        // value = value + coin::balance<BTC>(pool_signer) * get_exchange_rate<CoinX, BTC>() / UNIT_DECIMAL;
+        // value = value + coin::balance<ETH>(pool_signer) * get_exchange_rate<CoinX, ETH>() / UNIT_DECIMAL;
+        // value = value + coin::balance<SOL>(pool_signer) * get_exchange_rate<CoinX, SOL>() / UNIT_DECIMAL;
 
         return value - gas_value
     }
@@ -909,8 +941,14 @@ module mira::mira {
     }
 
     entry fun get_exchange_amt<CoinX, CoinY>(amount: u64): u64{
-        update<CoinX, CoinY, Uncorrelated>(@test_lp_owner);
-        return consult<CoinX, CoinY, Uncorrelated>(@test_lp_owner, amount)
+        // improve this check for cointype, not symbol name
+        if (symbol<CoinX>() == symbol<CoinY>()){
+            return amount
+        };
+        // uncomment when going live
+        // update<CoinX, CoinY, Uncorrelated>(@test_lp_owner);
+        let reverse = if (coin_helper::is_sorted<CoinX, CoinY>()) {0}else{1};
+        return consult<CoinX, CoinY, Uncorrelated>(@test_lp_owner, amount, reverse)
     }
 
 
