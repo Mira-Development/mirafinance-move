@@ -6,16 +6,12 @@
       <change beforePath="$PROJECT_DIR$/build/Mira/BuildInfo.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/BuildInfo.yaml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/bytecode_modules/liquid_test.mv" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/bytecode_modules/liquid_test.mv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/bytecode_modules/mira.mv" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/bytecode_modules/mira.mv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/Mira/bytecode_modules/oracle.mv" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/bytecode_modules/oracle.mv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/source_maps/liquid_test.mvsm" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/source_maps/liquid_test.mvsm" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/source_maps/mira.mvsm" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/source_maps/mira.mvsm" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/Mira/source_maps/oracle.mvsm" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/source_maps/oracle.mvsm" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/sources/liquid_test.move" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/sources/liquid_test.move" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/Mira/sources/mira.move" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/sources/mira.move" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/Mira/sources/oracle.move" beforeDir="false" afterPath="$PROJECT_DIR$/build/Mira/sources/oracle.move" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/sources/Mira.move" beforeDir="false" afterPath="$PROJECT_DIR$/sources/Mira.move" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/sources/tests/liquid_test.move" beforeDir="false" afterPath="$PROJECT_DIR$/sources/tests/liquid_test.move" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/sources/utils/oracle.move" beforeDir="false" afterPath="$PROJECT_DIR$/sources/utils/oracle.move" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

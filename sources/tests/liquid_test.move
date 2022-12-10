@@ -14,7 +14,7 @@ module mira::liquid_test {
     use liquidswap_lp::lp_coin::LP;
     use liquidswap::curves::Uncorrelated;
     use mira::better_coins::{BTC, USDC, SOL, mint, add_coins_to_admin, APT, ETH};
-    use mira::mira::{print_real_pool_distribution, print_investor_stakes};
+    use mira::mira::{print_real_pool_distribution, print_investor_stakes, send_funds_to_user, transfer_manager, repossess, print_account_info};
     use std::string;
     use mira::oracle::{init_oracle, update};
     use aptos_framework::timestamp;
@@ -82,10 +82,32 @@ module mira::liquid_test {
         print_investor_stakes(alice_acct, b"simple_portfolio");
 
         simple_withdraw(bob, alice_acct, 1 * UNIT_DECIMAL); // bob has 1.9575 to withdraw
-        //simple_withdraw(bob, alice_acct, 9 * UNIT_DECIMAL/10);
-        //simple_withdraw(bob, alice_acct, 5 * UNIT_DECIMAL/100);
+        simple_withdraw(bob, alice_acct, 9 * UNIT_DECIMAL/10);
+        simple_withdraw(bob, alice_acct, 5 * UNIT_DECIMAL/100);
         //simple_withdraw(bob, alice_acct, 7 * UNIT_DECIMAL/1000);
         //simple_withdraw(bob, alice_acct, 5 * UNIT_DECIMAL/10000); // rounding error causes some issues here
+
+        lock_and_unlock(admin);
+
+        withdraw_noswap(carl, alice_acct, 100 * UNIT_DECIMAL);
+        simple_withdraw(alice, alice_acct, 100 * UNIT_DECIMAL);
+
+        print_investor_stakes(alice_acct, b"simple_portfolio");
+
+        yearly_management(alice, alice_acct, b"simple_portfolio");
+        update_management_fee(admin, 5 * UNIT_DECIMAL);
+        yearly_management(admin, alice_acct, b"simple_portfolio");
+
+        print_investor_stakes(alice_acct, b"simple_portfolio");
+
+        simple_withdraw(dalya, alice_acct, 100 * UNIT_DECIMAL);
+
+        send_funds_to_user<APT>(alice, daisy_acct, 10 * UNIT_DECIMAL);
+
+        transfer_manager(alice, address_of(alice), daisy_acct, b"simple_portfolio");
+        repossess(admin, address_of(dalya), b"simple_portfolio");
+
+        print_account_info(admin);
     }
 
     public entry fun create_simple_pool(manager: &signer, amount: u64, management_fee: u64){
@@ -184,6 +206,10 @@ module mira::liquid_test {
 
     public entry fun simple_withdraw(investor: &signer, manager: address, amount: u64){
         mira::withdraw<APT>(investor, b"simple_portfolio", manager, amount, 0);
+    }
+
+    public entry fun withdraw_noswap(investor: &signer, manager: address, amount: u64){
+        mira::withdraw<APT>(investor, b"simple_portfolio", manager, amount, 1);
     }
 
     public entry fun btc_withdraw(investor: &signer, manager: address, amount: u64){

@@ -565,13 +565,24 @@ module mira::mira {
         while (i < vector::length(&mira_pool.token_names)) {
             let name = string::utf8(*vector::borrow<vector<u8>>(&mira_pool.token_names, i));
 
-            if (no_swap == 1){
-                let swap_amount = (amount / (fund_value - initial_balance / UNIT_DECIMAL)) * coin::balance<APT>(address_of(&pool_signer));
-                if (name == symbol<USDC>()) {coin::transfer<USDC>(&pool_signer, investor_addr, swap_amount)};
-                // TODO: finish this so user can withdraw without swap
+            if (no_swap == 1) {
+                print(&(amount * coin::balance<BTC>(address_of(&pool_signer)) / (fund_value)));
+
+                if (name == symbol<APT>()) {coin::transfer<APT>(&pool_signer, investor_addr,
+                    amount * coin::balance<APT>(address_of(&pool_signer)) / (fund_value))};
+                if (name == symbol<USDC>()) {coin::transfer<USDC>(&pool_signer, investor_addr,
+                    amount * coin::balance<USDC>(address_of(&pool_signer)) / (fund_value))};
+                if (name == symbol<BTC>()) {coin::transfer<BTC>(&pool_signer, investor_addr,
+                    amount * coin::balance<BTC>(address_of(&pool_signer)) / (fund_value))};
+                if (name == symbol<ETH>()) {coin::transfer<ETH>(&pool_signer, investor_addr,
+                    amount * coin::balance<ETH>(address_of(&pool_signer)) / (fund_value))};
+                if (name == symbol<SOL>()) {coin::transfer<SOL>(&pool_signer, investor_addr,
+                    amount * coin::balance<SOL>(address_of(&pool_signer)) / (fund_value))};
+                i = i + 1;
                 continue
             };
 
+            if (name == symbol<APT>()) {withdraw_helper<APT, CoinX>(&pool_signer, amount, fund_value, initial_balance);};
             if (name == symbol<USDC>()) {withdraw_helper<USDC, CoinX>(&pool_signer, amount, fund_value, initial_balance);};
             if (name == symbol<BTC>()) {withdraw_helper<BTC, CoinX>(&pool_signer, amount, fund_value, initial_balance);};
             if (name == symbol<ETH>()) {withdraw_helper<ETH, CoinX>(&pool_signer, amount, fund_value, initial_balance);};
@@ -579,7 +590,6 @@ module mira::mira {
             i = i + 1;
         };
 
-        //assert!(investor_addr == @0x444, amount);// coin::balance<CoinX>(address_of(&pool_signer)));
         if(no_swap == 0){ coin::transfer<CoinX>(&pool_signer, investor_addr, amount);};
 
         mira_pool.investor_funds = mira_pool.investor_funds - amount;
@@ -599,6 +609,16 @@ module mira::mira {
                 amount,
                 timestamp: timestamp::now_seconds()
             }
+        );
+    }
+
+    entry fun withdraw_helper<CoinX, CoinY>(pool_signer: &signer, amount: u64, fund_value: u64, initial_balance: u64){
+        if(symbol<CoinX>() == symbol<CoinY>()){return};
+        //swap<CoinY, CoinX>(pool_signer, get_exchange_amt<CoinX, CoinY>(amount));
+        let swap_amount = (amount * coin::balance<CoinY>(address_of(pool_signer))/ (fund_value - initial_balance / UNIT_DECIMAL)) ;
+        swap<CoinY, CoinX>(
+            pool_signer,
+            swap_amount
         );
     }
 
@@ -737,8 +757,6 @@ module mira::mira {
 
         let sell = coin::withdraw<CoinX>(signer, amount);
         let buy = router_v2::get_amount_out<CoinX, CoinY, Uncorrelated>(amount);
-        print(&buy);
-        print(&_amount_out);
         assert!(buy >= _amount_out * 990/ 1000, LIQUIDSWAP_FEE_TOO_HIGH); // liquidswap fee is > 1%
 
         let swap = router_v2::swap_exact_coin_for_coin<CoinX, CoinY, Uncorrelated>(
@@ -891,14 +909,6 @@ module mira::mira {
         );
         let pool_signer = account::create_signer_with_capability(pool_signer_capability);
         return pool_signer
-    }
-
-    entry fun withdraw_helper<CoinX, CoinY>(pool_signer: &signer, amount: u64, fund_value: u64, initial_balance: u64){
-        let swap_amount = (amount / (fund_value - initial_balance / UNIT_DECIMAL)) * coin::balance<CoinY>(address_of(pool_signer));
-        swap<CoinX, CoinY>(
-            pool_signer,
-            swap_amount
-        );
     }
 
     entry fun get_fund_value<CoinX>(manager: address, pool_name: vector<u8>): u64 acquires MiraAccount, MiraPool {
