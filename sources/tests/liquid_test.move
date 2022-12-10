@@ -64,7 +64,6 @@ module mira::liquid_test {
         coin::transfer<BTC>(admin, daisy_acct, 2 * UNIT_DECIMAL);
 
         create_simple_pool(alice, 1005 * UNIT_DECIMAL/100, 4 * UNIT_DECIMAL); // alice deposits 10.05 APT in simple portfolio, fee @ 4%
-        //create_btc_pool(alice, 1 * UNIT_DECIMAL, 10 * UNIT_DECIMAL); // alice deposits 1 BTC in btc portfolio, fee @ 10%
         update_simple_pool(alice, 2125 * UNIT_DECIMAL/1000); // alice updates fee to 2.125%, allocation, rebalancing, and rebalance_on_investment
 
         change_gas_funds(alice, 5 * UNIT_DECIMAL / 100, 1); // remove 0.05 APT from gas funds
@@ -84,7 +83,7 @@ module mira::liquid_test {
         simple_withdraw(bob, alice_acct, 1 * UNIT_DECIMAL); // bob has 1.9575 to withdraw
         simple_withdraw(bob, alice_acct, 9 * UNIT_DECIMAL/10);
         simple_withdraw(bob, alice_acct, 5 * UNIT_DECIMAL/100);
-        //simple_withdraw(bob, alice_acct, 7 * UNIT_DECIMAL/1000);
+        //simple_withdraw(bob, alice_acct, 7 * UNIT_DECIMAL/1000); // rounding error causes some issues here
         //simple_withdraw(bob, alice_acct, 5 * UNIT_DECIMAL/10000); // rounding error causes some issues here
 
         lock_and_unlock(admin);
@@ -158,6 +157,7 @@ module mira::liquid_test {
     }
 
     public entry fun create_btc_pool(manager: &signer, amount: u64, management_fee: u64){
+        // won't work for now, fix in next update (relies on LPs w/ direct swaps to BTC
         mira::connect_account(manager, b"Alice");
 
         let simple_tokens = vector::empty<vector<u8>>();

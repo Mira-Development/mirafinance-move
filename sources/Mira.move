@@ -225,7 +225,7 @@ module mira::mira {
         };
     }
 
-    // this should happen on backend, shouldn't charge user gas to change account name
+    // this should happen off-chain, shouldn't charge user gas to change account name
     public entry fun change_account_name(
         user: &signer,
         name: vector<u8>
@@ -257,7 +257,6 @@ module mira::mira {
         assert!(exists<MiraAccount>(manager_addr),
             CREATE_MIRA_ACCOUNT
         ); // in the future, auto-create account with random username
-
 
         let creation_fee = borrow_global_mut<MiraFees>(ADMIN).creation;
         deposit_amount = deposit_amount * (TOTAL_INVESTOR_STAKE -  creation_fee)/ TOTAL_INVESTOR_STAKE;
@@ -534,8 +533,6 @@ module mira::mira {
             assert!(*investor_stake >= (amount * (fund_value/10)) / TOTAL_INVESTOR_STAKE/10, fund_value);
         };
         assert!(amount > 0, INVALID_PARAMETER);
-        //assert!(investor_addr == @0x444, fund_value * (*investor_stake/10) / (TOTAL_INVESTOR_STAKE/10));
-        //assert!(investor_addr != MODULE_ADMIN, amount);
 
         update_stakes(investor_addr, address_of(&pool_signer), amount, 1, fund_value);
 
@@ -614,7 +611,6 @@ module mira::mira {
 
     entry fun withdraw_helper<CoinX, CoinY>(pool_signer: &signer, amount: u64, fund_value: u64, initial_balance: u64){
         if(symbol<CoinX>() == symbol<CoinY>()){return};
-        //swap<CoinY, CoinX>(pool_signer, get_exchange_amt<CoinX, CoinY>(amount));
         let swap_amount = (amount * coin::balance<CoinY>(address_of(pool_signer))/ (fund_value - initial_balance / UNIT_DECIMAL)) ;
         swap<CoinY, CoinX>(
             pool_signer,
@@ -639,8 +635,6 @@ module mira::mira {
         let fee = mira_pool.management_fee;
         if (admin == 1) {
             fee = borrow_global_mut<MiraFees>(ADMIN).management;
-            //assert!(fee < 0, fee);  //212500000
-                                    //500000000
         };
 
         assert!(fee > 0, INVALID_PARAMETER);
@@ -680,8 +674,6 @@ module mira::mira {
 
         // first loop: sell all tokens in excess
         while (i < vector::length(&mira_pool.token_names)) {
-            // print(&b"fund value: ");
-            // print(&fund_val);
             let name = string::utf8(*vector::borrow<vector<u8>>(&mira_pool.token_names, i));
             let index_allocation = vector::borrow<u64>(&mira_pool.token_allocations, i);
             let target_balance = *index_allocation * fund_val / 100;
@@ -697,8 +689,6 @@ module mira::mira {
 
         // second loop: buy all tokens in shortage
         while (j < vector::length(&mira_pool.token_names)) {
-            // print(&b"fund value: ");
-            // print(&fund_val);
             let name = string::utf8(*vector::borrow<vector<u8>>(&mira_pool.token_names, j));
             let index_allocation = vector::borrow<u64>(&mira_pool.token_allocations, j);
             let target_balance = *index_allocation * fund_val / 100;
@@ -778,7 +768,7 @@ module mira::mira {
         let mira_pool = borrow_global_mut<MiraPool>(address_of(&pool_signer));
 
         if (add_or_remove == 1) {
-            // withdrawing
+            // removing
             assert!(amount <= mira_pool.gas_funds, INSUFFICIENT_FUNDS);
             coin::transfer<APT>(&pool_signer, address_of(manager), amount);
             owner.funds_on_gas = owner.funds_on_gas - amount;
@@ -811,7 +801,7 @@ module mira::mira {
         new_acct.funds_on_gas = new_acct.funds_on_gas + mira_pool.gas_funds;
     }
 
-    //Move Pool from owner to Admin
+    //move MiraPool from owner to ADMIN
     public entry fun repossess(
         admin: &signer,
         user: address, pool_name: vector<u8>
@@ -884,8 +874,6 @@ module mira::mira {
                 }
             } else {
                 if (option::borrow(&key) == &investor) {
-                    //assert!(amount < 0, *val - amount * UNIT_DECIMAL * 100 / fund_value * 100);// 500000000
-                    //assert!(investor != MODULE_ADMIN, (amount * UNIT_DECIMAL * 100 / fund_value));//4999999
                     assert!(*val >= (amount * UNIT_DECIMAL * 100 / fund_value), fund_value);
                     *val = *val - (amount * UNIT_DECIMAL * 100 / fund_value);
                 };
@@ -923,17 +911,10 @@ module mira::mira {
         value = value + get_exchange_amt<ETH, CoinX>(coin::balance<ETH>(pool_signer));
         value = value + get_exchange_amt<SOL, CoinX>(coin::balance<SOL>(pool_signer));
 
-        // value = value + coin::balance<APT>(pool_signer) * get_exchange_rate<CoinX, APT>() / UNIT_DECIMAL;
-        // value = value + coin::balance<USDC>(pool_signer) * get_exchange_rate<CoinX, USDC>() / UNIT_DECIMAL;
-        // value = value + coin::balance<BTC>(pool_signer) * get_exchange_rate<CoinX, BTC>() / UNIT_DECIMAL;
-        // value = value + coin::balance<ETH>(pool_signer) * get_exchange_rate<CoinX, ETH>() / UNIT_DECIMAL;
-        // value = value + coin::balance<SOL>(pool_signer) * get_exchange_rate<CoinX, SOL>() / UNIT_DECIMAL;
-
         return value - gas_value
     }
 
     entry fun get_exchange_rate<CoinX, CoinY>(): u64 {
-        // use Pyth / Switchboard / other oracle
         //assert!(vector::contains(&VALID_TOKENS, &coin), INVALID_PARAMETER);
         let (dividend, divisor) = (1, 1);
 
