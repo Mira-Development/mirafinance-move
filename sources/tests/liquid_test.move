@@ -1,25 +1,23 @@
 #[test_only]
 module mira::liquid_test {
-    use mira::mira;
+    use std::option::{Self, some};
     use std::signer::address_of;
-    use aptos_framework::account;
-    use aptos_framework::coin;
-    use std::vector;
-    use std::option;
-    use std::option::some;
-    use aptos_framework::genesis;
-    use liquidswap::lp_account;
-    use liquidswap::liquidity_pool;
-    use aptos_framework::coin::{Coin, register, };
-    use liquidswap_lp::lp_coin::LP;
-    use liquidswap::curves::Uncorrelated;
-    use mira::better_coins::{BTC, USDC, SOL, mint, add_coins_to_admin, APT, ETH};
-    use mira::mira::{print_real_pool_distribution, print_investor_stakes, send_funds_to_user, transfer_manager, repossess, print_account_info};
     use std::string;
+    use std::vector;
+
+    use aptos_framework::account;
+    use aptos_framework::coin::{Self, Coin, register};
+    use aptos_framework::genesis;
+    use aptos_framework::timestamp::{Self, set_time_has_started_for_testing, fast_forward_seconds};
+
+    use liquidswap::curves::Uncorrelated;
+    use liquidswap::liquidity_pool::{Self, update_cumulative_price_for_test};
+    use liquidswap::lp_account;
+    use liquidswap_lp::lp_coin::LP;
+
+    use mira::better_coins::{BTC, USDC, SOL, mint, add_coins_to_admin, APT, ETH};
+    use mira::mira::{Self, print_real_pool_distribution, print_investor_stakes, send_funds_to_user, transfer_manager, repossess, print_account_info};
     use mira::oracle::{init_oracle, update};
-    use aptos_framework::timestamp;
-    use aptos_framework::timestamp::{set_time_has_started_for_testing, fast_forward_seconds};
-    use liquidswap::liquidity_pool::update_cumulative_price_for_test;
 
     const UNIT_DECIMAL: u64 = 100000000;
 

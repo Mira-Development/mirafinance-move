@@ -1,32 +1,30 @@
 module mira::mira {
-    use std::string;
-    use std::vector;
-    use aptos_framework::account;
-    use aptos_framework::coin;
-    use aptos_framework::event::{Self, EventHandle};
-    use std::string::String;
-    use aptos_std::simple_map::{Self, SimpleMap};
-    use aptos_framework::account::{SignerCapability, create_signer_with_capability};
+    use std::option::{Self, Option, is_some, some, is_none, none};
     use std::signer::{Self, address_of};
+    use std::string::{Self, String};
+    use std::vector;
+
+    use aptos_std::debug::print;
+    use aptos_std::simple_map::{Self, SimpleMap};
+    use aptos_std::table::{Self, Table};
     use aptos_std::table_with_length::{Self, TableWithLength};
-    use aptos_std::table;
+    use aptos_framework::account::{Self, SignerCapability, create_signer_with_capability};
+    use aptos_framework::coin::{Self, symbol, transfer};
+    use aptos_framework::event::{Self, EventHandle};
+    use aptos_framework::timestamp;
+
+    use liquidswap::coin_helper;
+    use liquidswap::curves::Uncorrelated;
+    use liquidswap::router_v2;
+
     use mira::better_coins::{BTC, ETH, SOL, USDC, APT};
-    use aptos_std::table::Table;
-    use mira::iterable_table::{IterableTable, head_key, borrow_iter, borrow, contains, };
-    use mira::iterable_table;
-    use std::option;
-    use aptos_std::debug;
+    use mira::iterable_table::{Self, IterableTable, head_key, borrow_iter, borrow, contains};
+    use mira::oracle::consult;
 
     #[test_only]
     use aptos_framework::coin::balance;
-    use aptos_framework::coin::{symbol, transfer};
-    use std::option::{Option, is_some, some, is_none, none};
-    use aptos_framework::timestamp;
-    use liquidswap::curves::Uncorrelated;
-    use aptos_std::debug::print;
-    use mira::oracle::{consult};
-    use liquidswap::router_v2;
-    use liquidswap::coin_helper;
+    #[test_only]
+    use aptos_std::debug;
 
     const ADMIN: address = @mira;
     //error codes

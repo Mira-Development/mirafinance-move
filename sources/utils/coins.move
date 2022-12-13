@@ -1,7 +1,7 @@
 module mira::coins {
-    use aptos_framework::managed_coin;
     use std::signer::address_of;
-    use aptos_framework::managed_coin::register;
+
+    use aptos_framework::managed_coin::{Self, register};
 
     const UNIT_DECIMAL: u64 = 100000000;
 

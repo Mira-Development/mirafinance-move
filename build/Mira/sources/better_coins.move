@@ -1,6 +1,6 @@
 module mira::better_coins {
-    use std::string::utf8;
     use std::signer;
+    use std::string::utf8;
 
     use aptos_framework::coin::{Self, Coin, MintCapability, BurnCapability};
 

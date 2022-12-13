@@ -1,8 +1,9 @@
 module mira::oracle {
-    use liquidswap::router_v2;
-    use aptos_std::debug::print;
-    use liquidswap::router_v2::get_reserves_size;
     use std::string;
+
+    use aptos_std::debug::print;
+
+    use liquidswap::router_v2::{Self, get_reserves_size};
 
     const MAX_U64: u128 = 18446744073709551615;
     const PERIOD: u64 = 86400;
