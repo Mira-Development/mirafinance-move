@@ -1,0 +1,20 @@
+<component name="ProjectCodeStyleConfiguration">
+  <code_scheme name="Project" version="173">
+    <option name="RIGHT_MARGIN" value="150" />
+    <Python>
+      <option name="SPACE_AROUND_EQ_IN_NAMED_PARAMETER" value="true" />
+      <option name="SPACE_AROUND_EQ_IN_KEYWORD_ARGUMENT" value="true" />
+      <option name="NEW_LINE_AFTER_COLON_MULTI_CLAUSE" value="false" />
+      <option name="DICT_WRAPPING" value="0" />
+      <option name="FROM_IMPORT_WRAPPING" value="0" />
+    </Python>
+    <codeStyleSettings language="Python">
+      <option name="RIGHT_MARGIN" value="180" />
+      <option name="KEEP_LINE_BREAKS" value="false" />
+      <option name="SPACE_BEFORE_METHOD_CALL_PARENTHESES" value="true" />
+      <option name="SPACE_BEFORE_METHOD_PARENTHESES" value="true" />
+      <option name="CALL_PARAMETERS_WRAP" value="0" />
+      <option name="METHOD_PARAMETERS_WRAP" value="0" />
+    </codeStyleSettings>
+  </code_scheme>
+</component>
