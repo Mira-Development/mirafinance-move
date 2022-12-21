@@ -671,19 +671,20 @@ module mira::mira {
     ) acquires MiraAccount, MiraPool, MiraFees, MiraStatus, MiraUserWithdraw, LockWithdrawals {
         // TODO: can only be called once yearly
         assert!(exists<MiraAccount>(signer::address_of(manager)), E_CREATE_MIRA_ACCOUNT);
+        assert!(
+            signer::address_of(manager) == ADMIN || signer::address_of(manager) == manager_addr,
+            E_INVALID_PARAMETER
+        );
 
-        assert!(signer::address_of(manager) == ADMIN || signer::address_of(manager) == manager_addr, E_INVALID_PARAMETER);
-        let admin = 0;
-        if (signer::address_of(manager) == ADMIN) { admin = 1; };
-
+        let is_admin = signer::address_of(manager) == ADMIN;
         let pool_signer = get_pool_signer(manager_addr, pool_name);
         let mira_pool = borrow_global_mut<MiraPool>(signer::address_of(&pool_signer));
         let stake_map = &mut mira_pool.investors;
+
         let fee = mira_pool.management_fee;
-        if (admin == 1) {
+        if (is_admin) {
             fee = borrow_global_mut<MiraFees>(ADMIN).management;
         };
-
         assert!(fee > 0, E_INVALID_PARAMETER);
 
         let i = 0;
@@ -699,7 +700,7 @@ module mira::mira {
             key = next;
             i = i + 1;
         };
-        if (admin == 1) {
+        if (is_admin) {
             let fee_amount = (fee * get_fund_value<APT>(manager_addr, pool_name)) / TOTAL_INVESTOR_STAKE;
             //mira_pool.investor_funds = mira_pool.investor_funds - fee_amount;
             withdraw<APT>(manager, pool_name, manager_addr, fee_amount, 0);
