@@ -1,6 +1,6 @@
 module mira::mira {
     use std::option::{Self, Option, is_some, some, is_none, none};
-    use std::signer::{Self, address_of};
+    use std::signer;
     use std::string::{Self, String};
     use std::vector;
 
@@ -22,27 +22,28 @@ module mira::mira {
     use mira::oracle::consult;
 
     #[test_only]
-    use aptos_framework::coin::balance;
-    #[test_only]
     use aptos_std::debug;
+    #[test_only]
+    use aptos_framework::coin::balance;
 
     const ADMIN: address = @mira;
+
     //error codes
-    const INVALID_ADMIN_ADDRESS: u64 = 1;
-    const INVALID_ACCOUNT_NAME: u64 = 2;
-    const INSUFFICIENT_FUNDS: u64 = 3;
-    const INVALID_PARAMETER: u64 = 4;
-    const DUPLICATE_NAME: u64 = 5;
-    const WITHDRAWAL_PERIOD_NOT_REACHED: u64 = 6;
-    const CANNOT_UPDATE_MANAGEMENT_FEE: u64 = 7;
-    const NO_REBALANCE_PERMISSION: u64 = 8;
-    const WITHDRAWALS_LOCKED_FOR_USER_SAFETY: u64 = 9;
-    const USER_MUST_REGISTER_THIS_TOKEN: u64 = 10;
-    const NO_FUNDS_LEFT: u64 = 11;
-    const ROUNDING_ERROR: u64 = 12;
-    const CREATE_MIRA_ACCOUNT: u64 = 13;
-    const KEY_ISSUE:u64 = 14;
-    const LIQUIDSWAP_FEE_TOO_HIGH:u64 = 15;
+    const E_INVALID_ADMIN_ADDRESS: u64 = 1;
+    const E_INVALID_ACCOUNT_NAME: u64 = 2;
+    const E_INSUFFICIENT_FUNDS: u64 = 3;
+    const E_INVALID_PARAMETER: u64 = 4;
+    const E_DUPLICATE_NAME: u64 = 5;
+    const E_WITHDRAWAL_PERIOD_NOT_REACHED: u64 = 6;
+    const E_CANNOT_UPDATE_MANAGEMENT_FEE: u64 = 7;
+    const E_NO_REBALANCE_PERMISSION: u64 = 8;
+    const E_WITHDRAWALS_LOCKED_FOR_USER_SAFETY: u64 = 9;
+    const E_USER_MUST_REGISTER_THIS_TOKEN: u64 = 10;
+    const E_NO_FUNDS_LEFT: u64 = 11;
+    const E_ROUNDING_ERROR: u64 = 12;
+    const E_CREATE_MIRA_ACCOUNT: u64 = 13;
+    const E_KEY_ISSUE: u64 = 14;
+    const E_LIQUIDSWAP_FEE_TOO_HIGH: u64 = 15;
 
     // parameters
     const MAX_MANAGEMENT_FEE: u64 = 1000000000;
@@ -60,9 +61,10 @@ module mira::mira {
 
     //defaults
     const DEFAULT_TRADING_TOKEN: vector<u8> = b"APT";
-    const DEFAULT_GAS_ALLOCATION: u64 = 5000000; // 0.0500000 APT;
+    // 0.0500000 APT;
+    const DEFAULT_GAS_ALLOCATION: u64 = 5000000;
     const UNIT_DECIMAL: u64 = 100000000;
-    const VALID_TOKENS: vector<vector<u8>> = vector<vector<u8>>[b"APT", b"USDC", b"BTC", b"ETH", b"SOL"];
+    const VALID_TOKENS: vector<vector<u8>> = vector[b"APT", b"USDC", b"BTC", b"ETH", b"SOL"];
 
     // to keep dApp updated
     struct MiraStatus has key {
@@ -176,8 +178,8 @@ module mira::mira {
     }
 
     public entry fun init_mira(admin: &signer) {
-        let admin_addr = address_of(admin);
-        assert!(admin_addr == ADMIN, INVALID_ADMIN_ADDRESS);
+        let admin_addr = signer::address_of(admin);
+        assert!(admin_addr == ADMIN, E_INVALID_ADMIN_ADDRESS);
 
         move_to(admin, MiraStatus {
             create_pool_events: account::new_event_handle<MiraPoolCreateEvent>(admin),
@@ -190,7 +192,7 @@ module mira::mira {
             lock: 0
         });
 
-        move_to(admin, MiraFees{
+        move_to(admin, MiraFees {
             creation: 0,
             investment: 0,
             management: 0
@@ -203,7 +205,7 @@ module mira::mira {
         user: &signer,
         account_name: vector<u8>
     ) {
-        let user_addr = address_of(user);
+        let user_addr = signer::address_of(user);
         if (!exists<MiraAccount>(user_addr)) {
             move_to(user, MiraAccount {
                 addr: user_addr,
@@ -228,13 +230,13 @@ module mira::mira {
         user: &signer,
         name: vector<u8>
     ) acquires MiraAccount {
-        assert!(vector::length(&name) > 0, INVALID_ACCOUNT_NAME);
-        let mira_acct = borrow_global_mut<MiraAccount>(address_of(user));
+        assert!(vector::length(&name) > 0, E_INVALID_ACCOUNT_NAME);
+        let mira_acct = borrow_global_mut<MiraAccount>(signer::address_of(user));
         mira_acct.account_name = string::utf8(name);
     }
 
     public entry fun send_funds_to_user<CoinX>(sender: &signer, recipient: address, amount: u64) {
-        assert!(coin::is_account_registered<CoinX>(recipient), USER_MUST_REGISTER_THIS_TOKEN);
+        assert!(coin::is_account_registered<CoinX>(recipient), E_USER_MUST_REGISTER_THIS_TOKEN);
         coin::transfer<CoinX>(sender, recipient, amount);
     }
 
@@ -251,13 +253,13 @@ module mira::mira {
         rebalance_on_investment: u8,
         gas: option::Option<u64>
     ) acquires MiraAccount, MiraStatus, MiraFees, MiraPool {
-        let manager_addr = address_of(manager);
+        let manager_addr = signer::address_of(manager);
         assert!(exists<MiraAccount>(manager_addr),
-            CREATE_MIRA_ACCOUNT
+            E_CREATE_MIRA_ACCOUNT
         ); // in the future, auto-create account with random username
 
         let creation_fee = borrow_global_mut<MiraFees>(ADMIN).creation;
-        deposit_amount = deposit_amount * (TOTAL_INVESTOR_STAKE -  creation_fee)/ TOTAL_INVESTOR_STAKE;
+        deposit_amount = deposit_amount * (TOTAL_INVESTOR_STAKE - creation_fee) / TOTAL_INVESTOR_STAKE;
         transfer<CoinX>(manager, ADMIN, (deposit_amount * creation_fee) / TOTAL_INVESTOR_STAKE);
 
         let mira_account = borrow_global_mut<MiraAccount>(manager_addr);
@@ -272,19 +274,21 @@ module mira::mira {
         let whitelist = table::new<u64, address>();
 
         // clean inputs for pool name, investment amount, & management fee
-        assert!(!string::is_empty(&string::utf8(pool_name)), INVALID_PARAMETER);
-        assert!(!table_with_length::contains(&mut mira_account.created_pools, string::utf8(pool_name)), DUPLICATE_NAME);
+        assert!(!string::is_empty(&string::utf8(pool_name)), E_INVALID_PARAMETER);
+        assert!(!table_with_length::contains(&mut mira_account.created_pools, string::utf8(pool_name)),
+            E_DUPLICATE_NAME
+        );
         assert!(
             deposit_amount >= (GLOBAL_MIN_CONTRIBUTION / UNIT_DECIMAL) * (get_exchange_rate<APT, CoinX>(
             ) / UNIT_DECIMAL),
-            INSUFFICIENT_FUNDS
+            E_INSUFFICIENT_FUNDS
         );
         assert!(
             deposit_amount >= (minimum_contribution / UNIT_DECIMAL) * (get_exchange_rate<APT, CoinX>() / UNIT_DECIMAL),
-            INSUFFICIENT_FUNDS
+            E_INSUFFICIENT_FUNDS
         );
-        assert!(vector::length(&token_names) == vector::length(&token_allocations), INVALID_PARAMETER);
-        assert!(management_fee <= MAX_MANAGEMENT_FEE, INVALID_PARAMETER);
+        assert!(vector::length(&token_names) == vector::length(&token_allocations), E_INVALID_PARAMETER);
+        assert!(management_fee <= MAX_MANAGEMENT_FEE, E_INVALID_PARAMETER);
 
         // in next update, clean inputs for min withdrawal, min contribution, privacy allocation, and gas percentage
 
@@ -319,7 +323,7 @@ module mira::mira {
             MiraPool {
                 pool_name: string::utf8(pool_name),
                 time_created,
-                pool_address: address_of(&pool_signer),
+                pool_address: signer::address_of(&pool_signer),
                 manager_addr,
                 investors,
                 token_allocations,
@@ -342,11 +346,11 @@ module mira::mira {
         mira_account.funds_under_management = mira_account.funds_under_management + investor_funds;
         mira_account.funds_on_gas = mira_account.funds_on_gas + gas_funds;
 
-        coin::transfer<CoinX>(manager, signer::address_of(&pool_signer), (investor_funds + gas_funds));
+        coin::transfer<CoinX>(manager, signer::signer::address_of(&pool_signer), (investor_funds + gas_funds));
 
         table_with_length::add(&mut mira_account.created_pools, string::utf8(pool_name), pool_signer_capability);
 
-        rebalance<APT>(manager, address_of(manager), pool_name);
+        rebalance<APT>(manager, signer::address_of(manager), pool_name);
 
         let miraStatus = borrow_global_mut<MiraStatus>(ADMIN);
         event::emit_event<MiraPoolCreateEvent>(
@@ -354,7 +358,7 @@ module mira::mira {
             MiraPoolCreateEvent {
                 pool_name: string::utf8(pool_name),
                 pool_owner: manager_addr,
-                pool_address: signer::address_of(&pool_signer),
+                pool_address: signer::signer::address_of(&pool_signer),
                 privacy_allocation,
                 management_fee,
                 founded: time_created,
@@ -376,46 +380,61 @@ module mira::mira {
         rebalance_now: u8,
         // referral_reward: u64,
         // whitelist: Table<u64, address>
-    )acquires MiraAccount, MiraStatus, MiraPool {
-        let manager_addr = address_of(manager);
-        assert!(exists<MiraAccount>(manager_addr),
-            CREATE_MIRA_ACCOUNT
-        );
-        let mira_account = borrow_global_mut<MiraAccount>(manager_addr);
+    ) acquires MiraAccount, MiraStatus, MiraPool {
+        let manager_addr = signer::address_of(manager);
+        assert!(exists<MiraAccount>(manager_addr), E_CREATE_MIRA_ACCOUNT);
 
-        if (is_none(&minimum_contribution) || *option::borrow(&minimum_contribution) < GLOBAL_MIN_CONTRIBUTION)
-            { minimum_contribution = some(GLOBAL_MIN_CONTRIBUTION) };
+        let mira_account = borrow_global_mut<MiraAccount>(manager_addr);
+        if (
+            is_none(&minimum_contribution)
+                || *option::borrow(&minimum_contribution) < GLOBAL_MIN_CONTRIBUTION
+        ) {
+            minimum_contribution = some(GLOBAL_MIN_CONTRIBUTION)
+        };
 
         // clean inputs for pool, tokens, management fee
         let pool_name_str = string::utf8(pool_name);
-        assert!(!string::is_empty(&pool_name_str), INVALID_PARAMETER);
-        assert!(table_with_length::contains(&mira_account.created_pools, pool_name_str), INVALID_PARAMETER);
+        assert!(!string::is_empty(&pool_name_str), E_INVALID_PARAMETER);
+        assert!(table_with_length::contains(&mira_account.created_pools, pool_name_str), E_INVALID_PARAMETER);
 
-        if(is_some(&token_names)){
-            assert!(is_some(&token_allocations), INVALID_PARAMETER);
+        if (is_some(&token_names)) {
+            assert!(is_some(&token_allocations), E_INVALID_PARAMETER);
             check_tokens(*option::borrow(&token_names), *option::borrow(&token_allocations));
-            assert!(vector::length(&*option::borrow(&token_names)) == vector::length(&*option::borrow(&token_allocations)), INVALID_PARAMETER);
+            assert!(
+                vector::length(&*option::borrow(&token_names)) == vector::length(&*option::borrow(&token_allocations)),
+                E_INVALID_PARAMETER
+            );
         };
 
-        if(is_some(&management_fee)) {assert!(*option::borrow(&management_fee) < MAX_MANAGEMENT_FEE, INVALID_PARAMETER);};
+        if (is_some(&management_fee)) {
+            assert!(
+                *option::borrow(&management_fee) < MAX_MANAGEMENT_FEE,
+                E_INVALID_PARAMETER
+            );
+        };
 
         // in next update, clean inputs for min contribution, referral reward, and gas percentage
 
-        let pool_signer = get_pool_signer(address_of(manager), pool_name);
-        let mira_pool = borrow_global_mut<MiraPool>(address_of(&pool_signer));
+        let pool_signer = get_pool_signer(signer::address_of(manager), pool_name);
+        let mira_pool = borrow_global_mut<MiraPool>(signer::address_of(&pool_signer));
 
-        if (!(manager_addr == ADMIN) && is_some(&management_fee)) { // only admin can increase management fee
-            assert!(*option::borrow(&management_fee) < mira_pool.management_fee, CANNOT_UPDATE_MANAGEMENT_FEE);
+        if (!(manager_addr == ADMIN) && is_some(&management_fee)) {
+            // only admin can increase management fee
+            assert!(*option::borrow(&management_fee) < mira_pool.management_fee, E_CANNOT_UPDATE_MANAGEMENT_FEE);
         };
 
-        if(is_some(&token_names)){mira_pool.token_names = *option::borrow(&token_names);};
-        if(is_some(&token_allocations)){mira_pool.token_allocations = *option::borrow(&token_allocations);};
-        if(is_some(&management_fee)){mira_pool.management_fee = *option::borrow(&management_fee);};
-        if(is_some(&rebalancing_period)){mira_pool.rebalancing_period = *option::borrow(&rebalancing_period);};
-        if(is_some(&rebalance_on_investment)){mira_pool.rebalance_on_investment = *option::borrow(&rebalance_on_investment);};
-        if(is_some(&minimum_contribution)){mira_pool.minimum_contribution = *option::borrow(&minimum_contribution);};
+        if (is_some(&token_names)) { mira_pool.token_names = *option::borrow(&token_names); };
+        if (is_some(&token_allocations)) { mira_pool.token_allocations = *option::borrow(&token_allocations); };
+        if (is_some(&management_fee)) { mira_pool.management_fee = *option::borrow(&management_fee); };
+        if (is_some(&rebalancing_period)) { mira_pool.rebalancing_period = *option::borrow(&rebalancing_period); };
+        if (is_some(&rebalance_on_investment)) {
+            mira_pool.rebalance_on_investment = *option::borrow(&rebalance_on_investment);
+        };
+        if (is_some(&minimum_contribution)) {
+            mira_pool.minimum_contribution = *option::borrow(&minimum_contribution);
+        };
 
-        if(rebalance_now == 1) {rebalance<APT>(manager, address_of(manager), pool_name);};
+        if (rebalance_now == 1) { rebalance<APT>(manager, signer::address_of(manager), pool_name); };
 
         let miraStatus = borrow_global_mut<MiraStatus>(ADMIN);
         event::emit_event<MiraPoolUpdateEvent>(
@@ -423,7 +442,7 @@ module mira::mira {
             MiraPoolUpdateEvent {
                 pool_name: pool_name_str,
                 pool_owner: manager_addr,
-                pool_address: address_of(&pool_signer),
+                pool_address: signer::address_of(&pool_signer),
                 privacy_allocation: 0,
                 timestamp: timestamp::now_seconds()
             }
@@ -435,46 +454,54 @@ module mira::mira {
         pool_name: vector<u8>,
         pool_owner: address,
         amount: u64
-    )acquires MiraPool, MiraAccount, MiraStatus, MiraUserWithdraw, MiraFees {
-        let investor_addr = address_of(investor);
-        assert!(exists<MiraAccount>(investor_addr) && exists<MiraAccount>(pool_owner),
-            CREATE_MIRA_ACCOUNT
+    ) acquires MiraPool, MiraAccount, MiraStatus, MiraUserWithdraw, MiraFees {
+        let investor_addr = signer::address_of(investor);
+        assert!(
+            exists<MiraAccount>(investor_addr) && exists<MiraAccount>(pool_owner),
+            E_CREATE_MIRA_ACCOUNT
         );
-        assert!(amount > 0, INVALID_PARAMETER);
+        assert!(amount > 0, E_INVALID_PARAMETER);
 
         let investment_fee = borrow_global_mut<MiraFees>(ADMIN).creation;
-        amount = amount * ((TOTAL_INVESTOR_STAKE - investment_fee)/ TOTAL_INVESTOR_STAKE);
-        let apt_amount = (amount * get_exchange_rate<CoinX, APT>())/ UNIT_DECIMAL;
+        amount = amount * ((TOTAL_INVESTOR_STAKE - investment_fee) / TOTAL_INVESTOR_STAKE);
+        let apt_amount = (amount * get_exchange_rate<CoinX, APT>()) / UNIT_DECIMAL;
         transfer<CoinX>(investor, ADMIN, (amount * investment_fee) / TOTAL_INVESTOR_STAKE);
 
         let investor_acct = borrow_global_mut<MiraAccount>(investor_addr);
         investor_acct.total_funds_invested = investor_acct.total_funds_invested + apt_amount;
 
         let pool_signer = get_pool_signer(pool_owner, pool_name);
-        update_stakes(investor_addr, address_of(&pool_signer), apt_amount, 0, get_fund_value<APT>(pool_owner, pool_name));
+        let pool_addr = signer::address_of(&pool_signer);
+        update_stakes(
+            investor_addr,
+            pool_addr,
+            apt_amount,
+            0,
+            get_fund_value<APT>(pool_owner, pool_name)
+        );
 
         let owner = borrow_global_mut<MiraAccount>(pool_owner);
-        let mira_pool = borrow_global_mut<MiraPool>(address_of(&pool_signer));
+        let mira_pool = borrow_global_mut<MiraPool>(pool_addr);
 
         assert!(
-            amount >= get_exchange_amt<APT, CoinX>(mira_pool.minimum_contribution / UNIT_DECIMAL) ,
-            INSUFFICIENT_FUNDS
+            amount >= get_exchange_amt<APT, CoinX>(mira_pool.minimum_contribution / UNIT_DECIMAL),
+            E_INSUFFICIENT_FUNDS
         );
 
         mira_pool.investor_funds = mira_pool.investor_funds + apt_amount;
         owner.funds_under_management = owner.funds_under_management + apt_amount;
 
-        coin::transfer<CoinX>(investor, address_of(&pool_signer), amount);
+        coin::transfer<CoinX>(investor, pool_addr, amount);
 
         if (mira_pool.rebalance_on_investment == 1) {
             rebalance<APT>(investor, pool_owner, pool_name);
         };
 
-        let miraStatus = borrow_global_mut<MiraStatus>(ADMIN);
-        let now = 0; timestamp::now_seconds();
+        let mira_status = borrow_global_mut<MiraStatus>(ADMIN);
+        let now = timestamp::now_seconds();
         //emit deposit
         event::emit_event<MiraPoolDepositEvent>(
-            &mut miraStatus.deposit_pool_events,
+            &mut mira_status.deposit_pool_events,
             MiraPoolDepositEvent {
                 pool_name: string::utf8(pool_name),
                 investor: investor_addr,
@@ -483,7 +510,6 @@ module mira::mira {
             }
         );
 
-        let pool_addr = address_of(&pool_signer);
         if (!exists<MiraUserWithdraw>(investor_addr)) {
             let last_withdraw_timestamp = simple_map::create<address, u64>();
             simple_map::add(&mut last_withdraw_timestamp, pool_addr, now);
@@ -495,7 +521,7 @@ module mira::mira {
             if (simple_map::contains_key(&mira_user_withdraw_status.last_withdraw_timestamp, &pool_addr)) {
                 let value = simple_map::borrow_mut(&mut mira_user_withdraw_status.last_withdraw_timestamp, &pool_addr);
                 *value = now;
-            }else {
+            } else {
                 simple_map::add(&mut mira_user_withdraw_status.last_withdraw_timestamp, pool_addr, now);
             };
         };
@@ -507,85 +533,108 @@ module mira::mira {
         pool_owner: address,
         amount: u64,
         no_swap: u8
-    )acquires MiraPool, MiraAccount, MiraStatus, MiraUserWithdraw, LockWithdrawals {
-        assert!(borrow_global_mut<LockWithdrawals>(ADMIN).lock == 0, WITHDRAWALS_LOCKED_FOR_USER_SAFETY);
-        assert!(exists<MiraAccount>(address_of(investor)) && exists<MiraAccount>(pool_owner),
-            CREATE_MIRA_ACCOUNT
+    ) acquires MiraPool, MiraAccount, MiraStatus, MiraUserWithdraw, LockWithdrawals {
+        assert!(borrow_global_mut<LockWithdrawals>(ADMIN).lock == 0, E_WITHDRAWALS_LOCKED_FOR_USER_SAFETY);
+        assert!(exists<MiraAccount>(signer::address_of(investor)) && exists<MiraAccount>(pool_owner),
+            E_CREATE_MIRA_ACCOUNT
         );
 
         // so that investor can withdraw with any token
         register_coin<CoinX>(investor);
 
-        let investor_addr = address_of(investor);
+        let investor_addr = signer::address_of(investor);
         let fund_value = get_fund_value<CoinX>(pool_owner, pool_name);
         let pool_signer = get_pool_signer(pool_owner, pool_name);
-        let mira_pool_temp = borrow_global_mut<MiraPool>(address_of(&pool_signer));
+        let mira_pool_temp = borrow_global_mut<MiraPool>(signer::address_of(&pool_signer));
 
         // if amount > amount available to withdraw, withdraw max amount
-        assert!(contains(&mira_pool_temp.investors, address_of(investor)), INVALID_PARAMETER);
-        let investor_stake = borrow(&mira_pool_temp.investors, address_of(investor));
+        assert!(contains(&mira_pool_temp.investors, signer::address_of(investor)), E_INVALID_PARAMETER);
+        let investor_stake = borrow(&mira_pool_temp.investors, signer::address_of(investor));
 
         //assert!(investor_addr == MODULE_ADMIN, amount); //fund_value * (*investor_stake/10) / (TOTAL_INVESTOR_STAKE/10)); 195754000
-        if (amount > fund_value * (*investor_stake/10) / (TOTAL_INVESTOR_STAKE/10)) {
-            amount = (fund_value * (*investor_stake/10)) / TOTAL_INVESTOR_STAKE/10;
-            assert!(*investor_stake >= (amount * (fund_value/10)) / TOTAL_INVESTOR_STAKE/10, fund_value);
+        if (amount > fund_value * (*investor_stake / 10) / (TOTAL_INVESTOR_STAKE / 10)) {
+            amount = (fund_value * (*investor_stake / 10)) / TOTAL_INVESTOR_STAKE / 10;
+            assert!(*investor_stake >= (amount * (fund_value / 10)) / TOTAL_INVESTOR_STAKE / 10, fund_value);
         };
-        assert!(amount > 0, INVALID_PARAMETER);
+        assert!(amount > 0, E_INVALID_PARAMETER);
 
-        update_stakes(investor_addr, address_of(&pool_signer), amount, 1, fund_value);
+        update_stakes(investor_addr, signer::address_of(&pool_signer), amount, 1, fund_value);
 
         let owner = borrow_global_mut<MiraAccount>(pool_owner);
-        let mira_pool = borrow_global_mut<MiraPool>(address_of(&pool_signer));
+        let mira_pool = borrow_global_mut<MiraPool>(signer::address_of(&pool_signer));
 
-        if (investor_addr != ADMIN){
+        if (investor_addr != ADMIN) {
             let user_withdraw_status = borrow_global_mut<MiraUserWithdraw>(investor_addr);
             let now = timestamp::now_seconds();
-            assert!(simple_map::contains_key(&mut user_withdraw_status.last_withdraw_timestamp,&address_of(&pool_signer)),
-                    KEY_ISSUE);
+            assert!(
+                simple_map::contains_key(&mut user_withdraw_status.last_withdraw_timestamp, &signer::address_of(&pool_signer)),
+                E_KEY_ISSUE
+            );
             let last_timestamp = simple_map::borrow_mut<address, u64>(
                 &mut user_withdraw_status.last_withdraw_timestamp,
-                &address_of(&pool_signer)
+                &signer::address_of(&pool_signer)
             );
 
             if (mira_pool.minimum_withdrawal_period > 0) {
                 assert!(
                     *last_timestamp + mira_pool.minimum_withdrawal_period * SEC_OF_DAY < now,
-                    WITHDRAWAL_PERIOD_NOT_REACHED
+                    E_WITHDRAWAL_PERIOD_NOT_REACHED
                 );
             } else { *last_timestamp = now; };
         };
 
         let i = 0;
-        let initial_balance = coin::balance<CoinX>(address_of(&pool_signer));
+        let pool_signer_addr = signer::address_of(&pool_signer);
+        let initial_balance = coin::balance<CoinX>(pool_signer_addr);
         while (i < vector::length(&mira_pool.token_names)) {
             let name = string::utf8(*vector::borrow<vector<u8>>(&mira_pool.token_names, i));
 
             if (no_swap == 1) {
-                print(&(amount * coin::balance<BTC>(address_of(&pool_signer)) / (fund_value)));
+                print(&(amount * coin::balance<BTC>(pool_signer_addr) / (fund_value)));
 
-                if (name == symbol<APT>()) {coin::transfer<APT>(&pool_signer, investor_addr,
-                    amount * coin::balance<APT>(address_of(&pool_signer)) / (fund_value))};
-                if (name == symbol<USDC>()) {coin::transfer<USDC>(&pool_signer, investor_addr,
-                    amount * coin::balance<USDC>(address_of(&pool_signer)) / (fund_value))};
-                if (name == symbol<BTC>()) {coin::transfer<BTC>(&pool_signer, investor_addr,
-                    amount * coin::balance<BTC>(address_of(&pool_signer)) / (fund_value))};
-                if (name == symbol<ETH>()) {coin::transfer<ETH>(&pool_signer, investor_addr,
-                    amount * coin::balance<ETH>(address_of(&pool_signer)) / (fund_value))};
-                if (name == symbol<SOL>()) {coin::transfer<SOL>(&pool_signer, investor_addr,
-                    amount * coin::balance<SOL>(address_of(&pool_signer)) / (fund_value))};
+                if (name == symbol<APT>()) {
+                    coin::transfer<APT>(&pool_signer, investor_addr,
+                        amount * coin::balance<APT>(pool_signer_addr) / (fund_value))
+                };
+                if (name == symbol<USDC>()) {
+                    coin::transfer<USDC>(&pool_signer, investor_addr,
+                        amount * coin::balance<USDC>(pool_signer_addr) / (fund_value))
+                };
+                if (name == symbol<BTC>()) {
+                    coin::transfer<BTC>(&pool_signer, investor_addr,
+                        amount * coin::balance<BTC>(pool_signer_addr) / (fund_value))
+                };
+                if (name == symbol<ETH>()) {
+                    coin::transfer<ETH>(&pool_signer, investor_addr,
+                        amount * coin::balance<ETH>(pool_signer_addr) / (fund_value))
+                };
+                if (name == symbol<SOL>()) {
+                    coin::transfer<SOL>(&pool_signer, investor_addr,
+                        amount * coin::balance<SOL>(pool_signer_addr) / (fund_value))
+                };
                 i = i + 1;
                 continue
             };
 
-            if (name == symbol<APT>()) {withdraw_helper<APT, CoinX>(&pool_signer, amount, fund_value, initial_balance);};
-            if (name == symbol<USDC>()) {withdraw_helper<USDC, CoinX>(&pool_signer, amount, fund_value, initial_balance);};
-            if (name == symbol<BTC>()) {withdraw_helper<BTC, CoinX>(&pool_signer, amount, fund_value, initial_balance);};
-            if (name == symbol<ETH>()) {withdraw_helper<ETH, CoinX>(&pool_signer, amount, fund_value, initial_balance);};
-            if (name == symbol<SOL>()) {withdraw_helper<SOL, CoinX>(&pool_signer, amount, fund_value, initial_balance);};
+            if (name == symbol<APT>()) {
+                withdraw_helper<APT, CoinX>(&pool_signer, amount, fund_value, initial_balance);
+            };
+            if (name == symbol<USDC>()) {
+                withdraw_helper<USDC, CoinX>(&pool_signer, amount, fund_value, initial_balance);
+            };
+            if (name == symbol<BTC>()) {
+                withdraw_helper<BTC, CoinX>(&pool_signer, amount, fund_value, initial_balance);
+            };
+            if (name == symbol<ETH>()) {
+                withdraw_helper<ETH, CoinX>(&pool_signer, amount, fund_value, initial_balance);
+            };
+            if (name == symbol<SOL>()) {
+                withdraw_helper<SOL, CoinX>(&pool_signer, amount, fund_value, initial_balance);
+            };
             i = i + 1;
         };
 
-        if(no_swap == 0){ coin::transfer<CoinX>(&pool_signer, investor_addr, amount);};
+        if (no_swap == 0) { coin::transfer<CoinX>(&pool_signer, investor_addr, amount); };
 
         mira_pool.investor_funds = mira_pool.investor_funds - amount;
 
@@ -607,35 +656,36 @@ module mira::mira {
         );
     }
 
-    entry fun withdraw_helper<CoinX, CoinY>(pool_signer: &signer, amount: u64, fund_value: u64, initial_balance: u64){
-        if(symbol<CoinX>() == symbol<CoinY>()){return};
-        let swap_amount = (amount * coin::balance<CoinY>(address_of(pool_signer))/ (fund_value - initial_balance / UNIT_DECIMAL)) ;
-        swap<CoinY, CoinX>(
-            pool_signer,
-            swap_amount
-        );
+    entry fun withdraw_helper<CoinX, CoinY>(pool_signer: &signer, amount: u64, fund_value: u64, initial_balance: u64) {
+        if (symbol<CoinX>() == symbol<CoinY>()) { return };
+        let swap_amount =
+            (amount * coin::balance<CoinY>(signer::address_of(pool_signer))
+                / (fund_value - initial_balance / UNIT_DECIMAL)) ;
+        swap<CoinY, CoinX>(pool_signer, swap_amount);
     }
 
-    public entry fun yearly_management(manager: &signer, manager_addr: address, pool_name: vector<u8>)acquires MiraAccount, MiraPool, MiraFees,
-        MiraStatus, MiraUserWithdraw, LockWithdrawals {
+    public entry fun yearly_management(
+        manager: &signer,
+        manager_addr: address,
+        pool_name: vector<u8>
+    ) acquires MiraAccount, MiraPool, MiraFees, MiraStatus, MiraUserWithdraw, LockWithdrawals {
         // TODO: can only be called once yearly
-        assert!(exists<MiraAccount>(address_of(manager)),
-            CREATE_MIRA_ACCOUNT
+        assert!(exists<MiraAccount>(signer::address_of(manager)), E_CREATE_MIRA_ACCOUNT);
+        assert!(
+            signer::address_of(manager) == ADMIN || signer::address_of(manager) == manager_addr,
+            E_INVALID_PARAMETER
         );
 
-        assert!(address_of(manager) == ADMIN || address_of(manager) == manager_addr, INVALID_PARAMETER);
-        let admin = 0;
-        if (address_of(manager) == ADMIN){ admin = 1;};
-
+        let is_admin = signer::address_of(manager) == ADMIN;
         let pool_signer = get_pool_signer(manager_addr, pool_name);
-        let mira_pool = borrow_global_mut<MiraPool>(address_of(&pool_signer));
+        let mira_pool = borrow_global_mut<MiraPool>(signer::address_of(&pool_signer));
         let stake_map = &mut mira_pool.investors;
+
         let fee = mira_pool.management_fee;
-        if (admin == 1) {
+        if (is_admin) {
             fee = borrow_global_mut<MiraFees>(ADMIN).management;
         };
-
-        assert!(fee > 0, INVALID_PARAMETER);
+        assert!(fee > 0, E_INVALID_PARAMETER);
 
         let i = 0;
         let key = head_key(stake_map);
@@ -644,28 +694,32 @@ module mira::mira {
             let val = iterable_table::borrow_mut(stake_map, *option::borrow(&key));
 
             *val = *val - (*val * fee / TOTAL_INVESTOR_STAKE);
-            if (option::borrow(&key) == &address_of(manager)) {
+            if (option::borrow(&key) == &signer::address_of(manager)) {
                 *val = *val + fee;
             };
             key = next;
             i = i + 1;
         };
-        if (admin == 1){
+        if (is_admin) {
             let fee_amount = (fee * get_fund_value<APT>(manager_addr, pool_name)) / TOTAL_INVESTOR_STAKE;
             //mira_pool.investor_funds = mira_pool.investor_funds - fee_amount;
             withdraw<APT>(manager, pool_name, manager_addr, fee_amount, 0);
         }
     }
 
-    public entry fun rebalance<CoinX>(signer: &signer, manager: address, pool_name: vector<u8>)acquires MiraAccount, MiraPool {
-        assert!(exists<MiraAccount>(address_of(signer)) && exists<MiraAccount>(manager), CREATE_MIRA_ACCOUNT);
+    public entry fun rebalance<CoinX>(
+        signer: &signer,
+        manager: address,
+        pool_name: vector<u8>
+    ) acquires MiraAccount, MiraPool {
+        assert!(exists<MiraAccount>(signer::address_of(signer)) && exists<MiraAccount>(manager), E_CREATE_MIRA_ACCOUNT);
         let fund_val = get_fund_value<CoinX>(manager, pool_name);
 
         let pool_signer = get_pool_signer(manager, pool_name);
-        let pool_addr = address_of(&pool_signer);
+        let pool_addr = signer::address_of(&pool_signer);
         let mira_pool = borrow_global_mut<MiraPool>(pool_addr);
 
-        assert!(address_of(signer) == manager || mira_pool.rebalance_on_investment == 1, NO_REBALANCE_PERMISSION);
+        assert!(signer::address_of(signer) == manager || mira_pool.rebalance_on_investment == 1, E_NO_REBALANCE_PERMISSION);
 
         let i = 0;
         let j = 0;
@@ -676,11 +730,11 @@ module mira::mira {
             let index_allocation = vector::borrow<u64>(&mira_pool.token_allocations, i);
             let target_balance = *index_allocation * fund_val / 100;
 
-            if (name == symbol<APT>()) {rebalance_helper<CoinX, APT>(&pool_signer, target_balance, 1); };
-            if (name == symbol<USDC>()) {rebalance_helper<CoinX, USDC>(&pool_signer, target_balance, 1); };
+            if (name == symbol<APT>()) { rebalance_helper<CoinX, APT>(&pool_signer, target_balance, 1); };
+            if (name == symbol<USDC>()) { rebalance_helper<CoinX, USDC>(&pool_signer, target_balance, 1); };
             if (name == symbol<BTC>()) { rebalance_helper<CoinX, BTC>(&pool_signer, target_balance, 1); };
-            if (name == symbol<ETH>()) {rebalance_helper<CoinX, ETH>(&pool_signer, target_balance, 1); };
-            if (name == symbol<SOL>()) {rebalance_helper<CoinX, SOL>(&pool_signer, target_balance, 1); };
+            if (name == symbol<ETH>()) { rebalance_helper<CoinX, ETH>(&pool_signer, target_balance, 1); };
+            if (name == symbol<SOL>()) { rebalance_helper<CoinX, SOL>(&pool_signer, target_balance, 1); };
 
             i = i + 1;
         };
@@ -691,21 +745,21 @@ module mira::mira {
             let index_allocation = vector::borrow<u64>(&mira_pool.token_allocations, j);
             let target_balance = *index_allocation * fund_val / 100;
 
-            if (name == symbol<APT>()) {rebalance_helper<CoinX, APT>(&pool_signer, target_balance, 0); };
-            if (name == symbol<USDC>()) {rebalance_helper<CoinX, USDC>(&pool_signer, target_balance, 0); };
+            if (name == symbol<APT>()) { rebalance_helper<CoinX, APT>(&pool_signer, target_balance, 0); };
+            if (name == symbol<USDC>()) { rebalance_helper<CoinX, USDC>(&pool_signer, target_balance, 0); };
             if (name == symbol<BTC>()) { rebalance_helper<CoinX, BTC>(&pool_signer, target_balance, 0); };
-            if (name == symbol<ETH>()) {rebalance_helper<CoinX, ETH>(&pool_signer, target_balance, 0); };
-            if (name == symbol<SOL>()) {rebalance_helper<CoinX, SOL>(&pool_signer, target_balance, 0); };
+            if (name == symbol<ETH>()) { rebalance_helper<CoinX, ETH>(&pool_signer, target_balance, 0); };
+            if (name == symbol<SOL>()) { rebalance_helper<CoinX, SOL>(&pool_signer, target_balance, 0); };
 
             j = j + 1;
         };
     }
 
-    entry fun rebalance_helper<CoinX, CoinY>(pool_signer: &signer, target_balance: u64, buy_or_sell: u8){
+    entry fun rebalance_helper<CoinX, CoinY>(pool_signer: &signer, target_balance: u64, buy_or_sell: u8) {
         // update to check type instead of symbol name
-        if(symbol<CoinX>() == symbol<CoinY>()){return};
-        let current_balance = get_exchange_amt<CoinY, CoinX>(coin::balance<CoinY>(address_of(pool_signer)));
-        if (buy_or_sell == 0){
+        if (symbol<CoinX>() == symbol<CoinY>()) { return };
+        let current_balance = get_exchange_amt<CoinY, CoinX>(coin::balance<CoinY>(signer::address_of(pool_signer)));
+        if (buy_or_sell == 0) {
             if (current_balance < target_balance) {
                 print(&b"BUY");
                 print(&b"current: ");
@@ -745,13 +799,13 @@ module mira::mira {
 
         let sell = coin::withdraw<CoinX>(signer, amount);
         let buy = router_v2::get_amount_out<CoinX, CoinY, Uncorrelated>(amount);
-        assert!(buy >= _amount_out * 990/ 1000, LIQUIDSWAP_FEE_TOO_HIGH); // liquidswap fee is > 1%
+        assert!(buy >= _amount_out * 990 / 1000, E_LIQUIDSWAP_FEE_TOO_HIGH); // liquidswap fee is > 1%
 
         let swap = router_v2::swap_exact_coin_for_coin<CoinX, CoinY, Uncorrelated>(
             sell,
             buy
         );
-        coin::deposit(address_of(signer), swap);
+        coin::deposit(signer::address_of(signer), swap);
     }
 
     // add or remove gas funds
@@ -760,41 +814,51 @@ module mira::mira {
         pool_name: vector<u8>,
         amount: u64,
         add_or_remove: u8
-    )acquires MiraAccount, MiraPool {
-        let pool_signer = get_pool_signer(address_of(manager), pool_name);
-        let owner = borrow_global_mut<MiraAccount>(address_of(manager));
-        let mira_pool = borrow_global_mut<MiraPool>(address_of(&pool_signer));
+    ) acquires MiraAccount, MiraPool {
+        let pool_signer = get_pool_signer(signer::address_of(manager), pool_name);
+        let owner = borrow_global_mut<MiraAccount>(signer::address_of(manager));
+        let mira_pool = borrow_global_mut<MiraPool>(signer::address_of(&pool_signer));
 
         if (add_or_remove == 1) {
             // removing
-            assert!(amount <= mira_pool.gas_funds, INSUFFICIENT_FUNDS);
-            coin::transfer<APT>(&pool_signer, address_of(manager), amount);
+            assert!(amount <= mira_pool.gas_funds, E_INSUFFICIENT_FUNDS);
+            coin::transfer<APT>(&pool_signer, signer::address_of(manager), amount);
             owner.funds_on_gas = owner.funds_on_gas - amount;
             mira_pool.gas_funds = mira_pool.gas_funds - amount;
         } else {
             // adding
-            coin::transfer<APT>(manager, address_of(&pool_signer), amount);
+            coin::transfer<APT>(manager, signer::address_of(&pool_signer), amount);
             owner.funds_on_gas = owner.funds_on_gas + amount;
             mira_pool.gas_funds = mira_pool.gas_funds + amount;
         }
     }
 
-    public entry fun transfer_manager(signer: &signer, current_manager: address,
-                                      new_manager: address, pool_name: vector<u8>) acquires MiraAccount, MiraPool {
-        assert!(address_of(signer) == ADMIN || address_of(signer) == current_manager, INVALID_PARAMETER);
+    public entry fun transfer_manager(
+        signer: &signer,
+        current_manager: address,
+        new_manager: address,
+        pool_name: vector<u8>
+    ) acquires MiraAccount, MiraPool {
+        assert!(signer::address_of(signer) == ADMIN || signer::address_of(signer) == current_manager, E_INVALID_PARAMETER);
 
         let current_acct = borrow_global_mut<MiraAccount>(current_manager);
         let pool_signer_capability = table_with_length::remove<String, SignerCapability>(
             &mut current_acct.created_pools,
             string::utf8(pool_name)
         );
-        let mira_pool = borrow_global_mut<MiraPool>(address_of(&create_signer_with_capability(&pool_signer_capability)));
+        let mira_pool = borrow_global_mut<MiraPool>(
+            signer::address_of(&create_signer_with_capability(&pool_signer_capability))
+        );
         mira_pool.manager_addr = new_manager;
         current_acct.funds_under_management = current_acct.funds_under_management - mira_pool.investor_funds;
         current_acct.funds_on_gas = current_acct.funds_on_gas - mira_pool.gas_funds;
 
         let new_acct = borrow_global_mut<MiraAccount>(new_manager);
-        table_with_length::add<String, SignerCapability>(&mut new_acct.created_pools, string::utf8(pool_name), pool_signer_capability);
+        table_with_length::add<String, SignerCapability>(
+            &mut new_acct.created_pools,
+            string::utf8(pool_name),
+            pool_signer_capability
+        );
         new_acct.funds_under_management = new_acct.funds_under_management + mira_pool.investor_funds;
         new_acct.funds_on_gas = new_acct.funds_on_gas + mira_pool.gas_funds;
     }
@@ -802,48 +866,63 @@ module mira::mira {
     //move MiraPool from owner to ADMIN
     public entry fun repossess(
         admin: &signer,
-        user: address, pool_name: vector<u8>
-    )acquires MiraPool, MiraAccount, MiraStatus {
-        transfer_manager(admin, user, address_of(admin), pool_name);
-        update_pool(admin, pool_name, none(), none(), some(1 * UNIT_DECIMAL), none(),
-            none(), some(0), 0);
+        user: address,
+        pool_name: vector<u8>
+    ) acquires MiraPool, MiraAccount, MiraStatus {
+        transfer_manager(admin, user, signer::address_of(admin), pool_name);
+        update_pool(
+            admin,
+            pool_name,
+            none(),
+            none(),
+            some(1 * UNIT_DECIMAL),
+            none(),
+            none(),
+            some(0),
+            0
+        );
     }
 
-    public entry fun lock_withdrawals(admin: &signer)acquires LockWithdrawals {
-        assert!(address_of(admin) == ADMIN, INVALID_ADMIN_ADDRESS);
-        let change_value = borrow_global_mut<LockWithdrawals>(address_of(admin));
+    public entry fun lock_withdrawals(admin: &signer) acquires LockWithdrawals {
+        assert!(signer::address_of(admin) == ADMIN, E_INVALID_ADMIN_ADDRESS);
+        let change_value = borrow_global_mut<LockWithdrawals>(signer::address_of(admin));
         change_value.lock = 1;
     }
 
-    public entry fun unlock_withdrawals(admin: &signer)acquires LockWithdrawals {
-        assert!(address_of(admin) == ADMIN, INVALID_ADMIN_ADDRESS);
-        let change_value = borrow_global_mut<LockWithdrawals>(address_of(admin));
+    public entry fun unlock_withdrawals(admin: &signer) acquires LockWithdrawals {
+        assert!(signer::address_of(admin) == ADMIN, E_INVALID_ADMIN_ADDRESS);
+        let change_value = borrow_global_mut<LockWithdrawals>(signer::address_of(admin));
         change_value.lock = 0;
     }
 
-    public entry fun update_creation_fee(admin: &signer, fee: u64)acquires MiraFees {
-        assert!(address_of(admin) == ADMIN, INVALID_ADMIN_ADDRESS);
-        assert!(fee < MAX_MANAGEMENT_FEE, INVALID_PARAMETER);
-        let change_value = borrow_global_mut<MiraFees>(address_of(admin));
+    public entry fun update_creation_fee(admin: &signer, fee: u64) acquires MiraFees {
+        assert!(signer::address_of(admin) == ADMIN, E_INVALID_ADMIN_ADDRESS);
+        assert!(fee < MAX_MANAGEMENT_FEE, E_INVALID_PARAMETER);
+        let change_value = borrow_global_mut<MiraFees>(signer::address_of(admin));
         change_value.creation = fee;
     }
 
-    public entry fun update_investment_fee(admin: &signer, fee: u64)acquires MiraFees {
-        assert!(address_of(admin) == ADMIN, INVALID_ADMIN_ADDRESS);
-        assert!(fee < MAX_MANAGEMENT_FEE, INVALID_PARAMETER);
-        let change_value = borrow_global_mut<MiraFees>(address_of(admin));
+    public entry fun update_investment_fee(admin: &signer, fee: u64) acquires MiraFees {
+        assert!(signer::address_of(admin) == ADMIN, E_INVALID_ADMIN_ADDRESS);
+        assert!(fee < MAX_MANAGEMENT_FEE, E_INVALID_PARAMETER);
+        let change_value = borrow_global_mut<MiraFees>(signer::address_of(admin));
         change_value.investment = fee;
     }
 
-    public entry fun update_management_fee(admin: &signer, fee: u64)acquires MiraFees {
-        assert!(address_of(admin) == ADMIN, INVALID_ADMIN_ADDRESS);
-        assert!(fee < MAX_MANAGEMENT_FEE, INVALID_PARAMETER);
-        let change_value = borrow_global_mut<MiraFees>(address_of(admin));
+    public entry fun update_management_fee(admin: &signer, fee: u64) acquires MiraFees {
+        assert!(signer::address_of(admin) == ADMIN, E_INVALID_ADMIN_ADDRESS);
+        assert!(fee < MAX_MANAGEMENT_FEE, E_INVALID_PARAMETER);
+        let change_value = borrow_global_mut<MiraFees>(signer::address_of(admin));
         change_value.management = fee;
     }
 
-    entry fun update_stakes(investor: address, pool_addr: address, amount: u64,
-                            invest_or_withdraw: u8, fund_value: u64)acquires MiraPool {
+    entry fun update_stakes(
+        investor: address,
+        pool_addr: address,
+        amount: u64,
+        invest_or_withdraw: u8,
+        fund_value: u64
+    ) acquires MiraPool {
         let mira_pool = borrow_global_mut<MiraPool>(pool_addr);
         let stake_divisor = (fund_value + amount) / (amount / 10000);
         let fee = (mira_pool.management_fee / stake_divisor) * 10000;
@@ -857,7 +936,6 @@ module mira::mira {
         while (i < iterable_table::length(stake_map)) {
             let (_, _, next) = borrow_iter(stake_map, *option::borrow(&key));
             let val = iterable_table::borrow_mut(stake_map, *option::borrow(&key));
-
 
             // iterate through all previous investors
             if (invest_or_withdraw == 0) {
@@ -898,7 +976,7 @@ module mira::mira {
     }
 
     entry fun get_fund_value<CoinX>(manager: address, pool_name: vector<u8>): u64 acquires MiraAccount, MiraPool {
-        let pool_signer = address_of(&get_pool_signer(manager, pool_name));
+        let pool_signer = signer::address_of(&get_pool_signer(manager, pool_name));
         let gas_value = borrow_global<MiraPool>(pool_signer).gas_funds;
 
         let value = 0;
@@ -929,17 +1007,16 @@ module mira::mira {
         return divisor * UNIT_DECIMAL / dividend
     }
 
-    entry fun get_exchange_amt<CoinX, CoinY>(amount: u64): u64{
+    entry fun get_exchange_amt<CoinX, CoinY>(amount: u64): u64 {
         // improve this check for cointype, not symbol name
-        if (symbol<CoinX>() == symbol<CoinY>()){
+        if (symbol<CoinX>() == symbol<CoinY>()) {
             return amount
         };
         // uncomment when going live
         // update<CoinX, CoinY, Uncorrelated>(@test_lp_owner);
-        let reverse = if (coin_helper::is_sorted<CoinX, CoinY>()) {0}else{1};
+        let reverse = if (coin_helper::is_sorted<CoinX, CoinY>()) { 0 }else { 1 };
         return consult<CoinX, CoinY, Uncorrelated>(@test_lp_owner, amount, reverse)
     }
-
 
     entry fun check_tokens(token_names: vector<vector<u8>>, token_allocations: vector<u64>) {
         let sum_allocation: u64 = 0;
@@ -949,26 +1026,29 @@ module mira::mira {
             let name = vector::borrow(&token_names, i);
             let alloc: u64 = *vector::borrow(&token_allocations, i);
 
-            assert!(vector::contains(&VALID_TOKENS, name) && !vector::contains(&token_check, name), INVALID_PARAMETER);
-            assert!(alloc < 100, INVALID_PARAMETER);
+            assert!(
+                vector::contains(&VALID_TOKENS, name) && !vector::contains(&token_check, name),
+                E_INVALID_PARAMETER
+            );
+            assert!(alloc < 100, E_INVALID_PARAMETER);
 
             vector::push_back(&mut token_check, *name);
             sum_allocation = sum_allocation + alloc;
             i = i + 1;
         };
-        assert!(sum_allocation == 100, INVALID_PARAMETER);
+        assert!(sum_allocation == 100, E_INVALID_PARAMETER);
     }
 
     entry fun register_coin<coinX>(signer: &signer) {
-        if (!coin::is_account_registered<coinX>(address_of(signer))) {
+        if (!coin::is_account_registered<coinX>(signer::address_of(signer))) {
             coin::register<coinX>(signer);
         }
     }
 
     #[test_only]
     public fun print_pool_info(user: &signer, pool_name: vector<u8>) acquires MiraAccount, MiraPool {
-        let pool_signer = get_pool_signer(address_of(user), pool_name);
-        let mira_pool = borrow_global_mut<MiraPool>(address_of(&pool_signer));
+        let pool_signer = get_pool_signer(signer::address_of(user), pool_name);
+        let mira_pool = borrow_global_mut<MiraPool>(signer::address_of(&pool_signer));
         debug::print(&string::utf8(b"name:"));
         debug::print(&mira_pool.pool_name);
         debug::print(&string::utf8(b"token names:"));
@@ -992,7 +1072,7 @@ module mira::mira {
     #[test_only]
     public fun print_investor_stakes(manager: address, pool_name: vector<u8>) acquires MiraAccount, MiraPool {
         let pool_signer = get_pool_signer(manager, pool_name);
-        let mira_pool = borrow_global_mut<MiraPool>(address_of(&pool_signer));
+        let mira_pool = borrow_global_mut<MiraPool>(signer::address_of(&pool_signer));
         let stake_map = &mut mira_pool.investors;
 
         let key = head_key(stake_map);
@@ -1012,34 +1092,34 @@ module mira::mira {
 
     #[test_only]
     public fun print_account_info(user: &signer) acquires MiraAccount {
-        let acct = borrow_global_mut<MiraAccount>(address_of(user));
+        let user_address = signer::address_of(user);
+        let acct = borrow_global_mut<MiraAccount>(user_address);
         debug::print(acct);
         debug::print(&string::utf8(b"APT:"));
-        debug::print(&balance<APT>(address_of(user)));
+        debug::print(&balance<APT>(user_address));
         debug::print(&string::utf8(b"USDC:"));
-        debug::print(&balance<USDC>(address_of(user)));
+        debug::print(&balance<USDC>(user_address));
         debug::print(&string::utf8(b"BTC:"));
-        debug::print(&balance<BTC>(address_of(user)));
+        debug::print(&balance<BTC>(user_address));
         debug::print(&string::utf8(b"ETH:"));
-        debug::print(&balance<ETH>(address_of(user)));
+        debug::print(&balance<ETH>(user_address));
         debug::print(&string::utf8(b"SOL:"));
-        debug::print(&balance<SOL>(address_of(user)));
+        debug::print(&balance<SOL>(user_address));
     }
 
     #[test_only]
-    public fun print_real_pool_distribution(manager: address, pool_name: String)acquires MiraAccount {
+    public fun print_real_pool_distribution(manager: address, pool_name: String) acquires MiraAccount {
         let pool_signer = get_pool_signer(manager, *string::bytes(&pool_name));
-
+        let pool_signer_addr = signer::address_of(&pool_signer);
         print(&string::utf8(b"APT:"));
-        print(&balance<APT>(address_of(&pool_signer)));
+        print(&balance<APT>(pool_signer_addr));
         print(&string::utf8(b"USDC:"));
-        print(&balance<USDC>(address_of(&pool_signer)));
+        print(&balance<USDC>(pool_signer_addr));
         print(&string::utf8(b"BTC:"));
-        print(&balance<BTC>(address_of(&pool_signer)));
+        print(&balance<BTC>(pool_signer_addr));
         print(&string::utf8(b"ETH:"));
-        print(&balance<ETH>(address_of(&pool_signer)));
+        print(&balance<ETH>(pool_signer_addr));
         print(&string::utf8(b"SOL:"));
-        print(&balance<SOL>(address_of(&pool_signer)));
+        print(&balance<SOL>(pool_signer_addr));
     }
-
 }
